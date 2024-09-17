@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="fb521775-6162-4476-bb4c-2c0f2b30465a" name="Changes" comment="IFTA Form UI added signature">
+      <change beforePath="$PROJECT_DIR$/fleetenable-driver-app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fleetenable-driver-app/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/controller/ifta_controller.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/controller/ifta_controller.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/controller/vehicle_inspection_report_controller.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/controller/vehicle_inspection_report_controller.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/view/ifta_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/view/ifta_view.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/view/vehicle_inspection_report.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fleetenable-driver-app/lib/routes/ifta_form/view/vehicle_inspection_report.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fleetenable-driver-app/lib/services/session_manager.dart" beforeDir="false" afterPath="$PROJECT_DIR$/fleetenable-driver-app/lib/services/session_manager.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fleetenable-driver-app/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/fleetenable-driver-app/pubspec.lock" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Dart File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$/fleetenable-driver-app" value="FLTNBE-7908_IFTA_Form_2" />
+        <entry key="$PROJECT_DIR$/fleetenable-driver-app/ls-botrista-mobile" value="main" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/fleetenable-driver-app" />
+    <option name="ROOT_SYNC" value="DONT_SYNC" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Praneethfleet&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/fleetenable-org/fleetenable-driver-app.git&quot;,
+    &quot;accountId&quot;: &quot;14671665-e493-40d5-a6fa-aea4ce244399&quot;
+  }
+}</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/fleetenable-driver-app/lib/routes/stop_list_screen/controller/stop_list_controller.dart" root0="FORCE_HIGHLIGHTING" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="2hoRXrUvijlIisaWk1SUCSBLJjx" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Flutter.main.dart.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;ScreenshotViewer.SavePath&quot;: &quot;/home/vpraneeth/praneeth/fleet&quot;,
+    &quot;ShowUsagesActions.previewPropertyKey&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.android.tools.idea.streaming.zoom.toolbar.visible&quot;: &quot;false&quot;,
+    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;FLTNBE-7908__IFTA__Form&quot;,
+    &quot;io.flutter.reload.alreadyRun&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/vpraneeth/praneeth/fleet/fleetenable-driver-app/android&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;flutter.settings&quot;,
+    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/fleetenable-driver-app/android" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="main.dart" type="FlutterRunConfigurationType" factoryName="Flutter" temporary="true" nameIsGenerated="true">
+      <option name="filePath" value="$PROJECT_DIR$/fleetenable-driver-app/lib/main.dart" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Flutter.main.dart" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="fb521775-6162-4476-bb4c-2c0f2b30465a" name="Changes" comment="" />
+      <created>1718258486880</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1718258486880</updated>
+    </task>
+    <task id="LOCAL-00001" summary="App-secondary-language">
+      <option name="closed" value="true" />
+      <created>1718890862495</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1718890862495</updated>
+    </task>
+    <task id="LOCAL-00002" summary="App-secondary-language additional changes added">
+      <option name="closed" value="true" />
+      <created>1718964068359</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1718964068359</updated>
+    </task>
+    <task id="LOCAL-00003" summary="App-secondary-language additional changes added">
+      <option name="closed" value="true" />
+      <created>1719315416188</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1719315416188</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Minor changes">
+      <option name="closed" value="true" />
+      <created>1719382129717</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1719382129717</updated>
+    </task>
+    <task id="LOCAL-00005" summary="API level from 33 to 34">
+      <option name="closed" value="true" />
+      <created>1721124378389</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1721124378389</updated>
+    </task>
+    <task id="LOCAL-00006" summary="API level from 33 to 34, localisation">
+      <option name="closed" value="true" />
+      <created>1721377520609</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1721377520609</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Updated profile_view,missing_bol,sync_progress">
+      <option name="closed" value="true" />
+      <created>1721389349151</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1721389349151</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Updated profile_view,missing_bol,sync_progress">
+      <option name="closed" value="true" />
+      <created>1721390043611</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1721390043611</updated>
+    </task>
+    <task id="LOCAL-00009" summary="localisation update in route_list_controller.dart">
+      <option name="closed" value="true" />
+      <created>1721653704136</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1721653704136</updated>
+    </task>
+    <task id="LOCAL-00010" summary="localisation update in route_list_controller.dart">
+      <option name="closed" value="true" />
+      <created>1721653774454</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1721653774454</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Fixing missing translation">
+      <option name="closed" value="true" />
+      <created>1721731569272</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1721731569273</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Fixing missing translation">
+      <option name="closed" value="true" />
+      <created>1721732069791</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1721732069791</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Fixing missing translation_2">
+      <option name="closed" value="true" />
+      <created>1721824894294</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1721824894295</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Fixing missing translation_2">
+      <option name="closed" value="true" />
+      <created>1721825234956</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1721825234956</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Fixing missing translation_2">
+      <option name="closed" value="true" />
+      <created>1721888575594</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1721888575594</updated>
+    </task>
+    <task id="LOCAL-00016" summary="IFTA Form UI">
+      <option name="closed" value="true" />
+      <created>1722949730609</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1722949730609</updated>
+    </task>
+    <task id="LOCAL-00017" summary="IFTA Form UI changes">
+      <option name="closed" value="true" />
+      <created>1723442017000</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1723442017000</updated>
+    </task>
+    <task id="LOCAL-00018" summary="IFTA Form UI changes">
+      <option name="closed" value="true" />
+      <created>1724135079132</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1724135079132</updated>
+    </task>
+    <task id="LOCAL-00019" summary="IFTA Form UI added signature">
+      <option name="closed" value="true" />
+      <created>1724145940021</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1724145940021</updated>
+    </task>
+    <task id="LOCAL-00020" summary="IFTA Form UI added signature">
+      <option name="closed" value="true" />
+      <created>1724665533596</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1724665533597</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="App-secondary-language" />
+    <MESSAGE value="App-secondary-language additional changes added" />
+    <MESSAGE value="Minor changes" />
+    <MESSAGE value="API level from 33 to 34" />
+    <MESSAGE value="API level from 33 to 34, localisation" />
+    <MESSAGE value="Updated profile_view,missing_bol,sync_progress" />
+    <MESSAGE value="localisation update in route_list_controller.dart" />
+    <MESSAGE value="Fixing missing translation" />
+    <MESSAGE value="Fixing missing translation_2" />
+    <MESSAGE value="IFTA Form UI" />
+    <MESSAGE value="IFTA Form UI changes" />
+    <MESSAGE value="IFTA Form UI added signature" />
+    <option name="LAST_COMMIT_MESSAGE" value="IFTA Form UI added signature" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/fleetenable-driver-app/lib/services/location_service/location_library/background_service.dart</url>
+          <line>61</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

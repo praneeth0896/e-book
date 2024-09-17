@@ -1,0 +1,627 @@
+Index: fleetenable-driver-app/lib/routes/stop_list_screen/view/stop_list_view.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import 'dart:async';\n\nimport 'package:fleet_enable/Utils/app_enums.dart';\nimport 'package:fleet_enable/Utils/utils.dart';\nimport 'package:fleet_enable/constant/app_constant.dart';\nimport 'package:fleet_enable/constant/app_lang_constants.dart';\nimport 'package:fleet_enable/dart_extensions/string_extensions.dart';\nimport 'package:fleet_enable/model/l_address.dart';\nimport 'package:fleet_enable/routes/base_route.dart';\nimport 'package:fleet_enable/routes/eta/eta_view.dart';\nimport 'package:fleet_enable/routes/ifta_form/view/ifta_view.dart';\nimport 'package:fleet_enable/routes/stop_list_screen/controller/stop_list_controller.dart';\nimport 'package:fleet_enable/services/session_manager.dart';\nimport 'package:fleet_enable/widgets/common_widgets.dart';\nimport 'package:fleet_enable/widgets/swipe_button/swipe_button_controller.dart';\nimport 'package:fleet_enable/widgets/swipe_button/swipe_view.dart';\nimport 'package:fleet_enable/widgets/toolbar/toolbar_view.dart';\nimport 'package:flutter/cupertino.dart';\nimport 'package:flutter/material.dart';\nimport 'package:flutter/services.dart';\nimport 'package:flutter_animate/flutter_animate.dart';\nimport 'package:flutter_svg/svg.dart';\nimport 'package:get/get.dart';\nimport 'package:google_maps_flutter/google_maps_flutter.dart';\nimport 'package:qr_flutter/qr_flutter.dart';\nimport 'package:shimmer/shimmer.dart';\nimport 'package:toastification/toastification.dart';\n\nimport '../../../Theme/text_theme.dart';\nimport '../../../constant/db_constant.dart';\nimport '../../../constant/route_constant.dart';\nimport '../../../my_app.dart';\nimport '../../../realmDb/completeNavRoute/model/StopOrdersModel.dart';\nimport '../../../realmDb/completeNavRoute/model/StopsModel.dart';\nimport '../../../realmDb/completeNavRoute/realm/NavRoute.dart';\nimport '../../../realmDb/completeNavRoute/realm/StopOrders.dart';\nimport '../../offline_sync_screen/sync_progress.dart';\n\n\nString recoveryIcon = \"assets/icon/recovery_release/recovery_red-svg.png\";\nString releaseIcon = \"assets/icon/recovery_release/release_green-svg.png\";\nString lineHaulIcon = \"assets/icon/line_haul/line_haul.png\";\n\nclass StopListView extends StatefulWidget {\n  const StopListView({super.key});\n\n  @override\n  State<StopListView> createState() => _StopListViewState();\n}\n\nclass _StopListViewState extends BaseRoute<StopListView> with TickerProviderStateMixin {\n  RxBool showTopArrow = false.obs;\n  RxBool showDownArrow = true.obs;\n\n  final Completer<GoogleMapController> completer = Completer<GoogleMapController>();\n  StopListController stopListController = Get.put(StopListController(), tag: Get.arguments?['nav_route']?.id);\n  // StopListController stopListController = Get.put(StopListController(), tag: Get.arguments?['nav_route']?.id ?? (Get.arguments?['disable_navigation'] as bool? ?? false ? UniqueKey().toString() : null));\n\n  /// shadow animation for scrollable list\n  final DecorationTween decorationTween = DecorationTween(\n    begin: const BoxDecoration(\n      boxShadow: <BoxShadow>[],\n    ),\n    end: BoxDecoration(boxShadow: <BoxShadow>[BoxShadow(color: Colors.grey.shade300, offset: const Offset(0, 10), blurRadius: 10)]),\n  );\n\n  late final AnimationController _animationController;\n\n  late final AnimationController _badgeAnimationController;\n\n  @override\n  void initState() {\n    _animationController = AnimationController(\n      vsync: this,\n      duration: const Duration(milliseconds: 100),\n    );\n\n    _badgeAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));\n    _badgeAnimationController.repeat(reverse: true);\n\n    Utils.changeOrientation(Orientations.PORTRAIT);\n    super.initState();\n  }\n\n  @override\n  void dispose() {\n    _animationController.dispose();\n    _badgeAnimationController.dispose();\n    super.dispose();\n  }\n\n  Future<bool> canPop() async {\n    if (stopListController.isMapsOpen.isTrue) {\n      stopListController.isMapsOpen.value = false;\n      return false;\n    } else if ((await SessionManager().getRouteId()).isEmpty) {\n      return true;\n    } else if (stopListController.isHistory.value) {\n      return true;\n    } else {\n      const MethodChannel('flutter_app_minimizer').invokeMethod('flutter_app_minimizer#minimize');\n      return false;\n    }\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    return WillPopScope(\n      onWillPop: () async => canPop(),\n      child: Scaffold(\n        backgroundColor: Colors.grey.shade100,\n        // backgroundColor: Colors.white,\n        body: SafeArea(\n          child: Obx(\n            () => Column(\n              mainAxisSize: MainAxisSize.min,\n              children: [\n               stopListController.isHistory.isFalse\n                    ? Column(children: [\n                        const RepaintBoundary(key: Key(\"toolbarPaint\"), child: ToolBarView(key: Key(\"stopList\"))),\n                        stopListToolBar(),\n                      ]) : _stopListAppBar(),\n                // App(configuration)\n                Expanded(\n                  child: Obx(() {\n                    return stopListController.isUiLoaded.value\n                        ? Stack(\n                            children: [\n                              Visibility(maintainState: true, visible: stopListController.isMapsOpen.isFalse, child: stopListView()),\n                              if (stopListController.isMapsInitialized.value)\n                                Visibility(\n                                    maintainState: true,\n                                    maintainAnimation: true,\n                                    maintainSize: true,\n                                    visible: stopListController.isMapsOpen.value,\n                                    child: Stack(\n                                      fit: StackFit.expand,\n                                      children: <Widget>[\n                                        MapView(stopListController: stopListController, completer: completer),\n                                        Container(\n                                          margin: EdgeInsets.only(bottom: getMediaQueryHeight(context, 0.09)),\n                                          // color: Colors.green,\n                                          child: Align(\n                                            alignment: Alignment.bottomCenter,\n                                            child: SizedBox(\n                                              height: getMediaQueryHeight(context, 0.175),\n                                              child: PageView.builder(\n                                                  controller: stopListController.mapPageController,\n                                                  onPageChanged: pageChanged,\n                                                  itemCount: stopListController.stopList.length,\n                                                  itemBuilder: (BuildContext context, int index) => _getMapCardView(stopListController.stopList[index], index)),\n                                            ),\n                                          ),\n                                        ),\n                                      ],\n                                    )),\n                            ],\n                          )\n                        : stopListShimmerEffect();\n                  }),\n                ),\n              ],\n            ),\n          ),\n        ),\n        floatingActionButton: Obx(() {\n          return Column(\n            crossAxisAlignment: CrossAxisAlignment.end,\n            mainAxisAlignment: MainAxisAlignment.end,\n            children: [\n            Padding(padding: EdgeInsets.only(right: getMediaQueryWidth(context, 0.02)),child:FloatingActionButton(onPressed: () {\n              Get.to(IftaView());\n            },child: Icon(Icons.format_color_fill_rounded,size: 22,),),),\n            (stopListController.isHelper.isFalse && stopListController.isUiLoaded.value && stopListController.isHistory.isFalse) ? slideBar(context) : const SizedBox.shrink()\n          ],);\n        }),\n        floatingActionButtonAnimator: FloatingActionButtonAnimator.scaling,\n        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,\n      ),\n    );\n  }\n\n  Widget slideBar(BuildContext context) {\n    return SlideButton(\n      key: const ValueKey('swipeButton'),\n      label: stopListController.isRouteStarted.value ? AppConstants.swipe_to_start_route : AppConstants.swipe_to_complete_route,\n    );\n  }\n\n  void pageChanged(int index) {\n    try {\n      stopListController.index = index;\n      Marker marker = stopListController.markers.elementAt(stopListController.index);\n      stopListController.mapController.moveCamera(CameraUpdate.newCameraPosition(\n        CameraPosition(target: marker.position, zoom: 14),\n      ));\n    } catch (ex) {\n      print(ex);\n      print(\"index out of range\");\n    }\n  }\n\n  /// NavRoute toolbar widget\n  Widget stopListToolBar() {\n    return Container(\n      key: const Key(\"DecoratedBoxTransition>container\"),\n      decoration: const BoxDecoration(\n          // color: Colors.grey.shade100,\n          ),\n      // color: Colors.grey,\n      padding: EdgeInsets.only(left: getMediaQueryHeight(context, 0.02), right: getMediaQueryHeight(context, 0.02)),\n      child: Row(\n        mainAxisAlignment: MainAxisAlignment.spaceBetween,\n        children: [\n          Row(\n            mainAxisAlignment: MainAxisAlignment.start,\n            children: [\n              if (!stopListController.isRouteStarted.value || stopListController.isHelper.value)\n                IconButton(\n                  splashRadius: 1,\n                  onPressed: () async {\n                    if (stopListController.isHelper.value) {\n                      if (await Utils.showConfirmDialog(AppConstants.helper_exit_confirm)) {\n                        if (await Get.find<SwipeButtonController>().exitHelper()) {}\n                      }\n                    }\n                    Get.back();\n                  },\n                  icon: const Icon(Icons.arrow_back_sharp),\n                  iconSize: getMediaQueryWidth(context, 0.058),\n                ),\n              stopListController.isRouteStarted.value\n                  ? FutureBuilder(\n                      future: getRouteNameAsync(),\n                      builder: (context, snapShot) {\n                        if (snapShot.hasData) {\n                          return Container(\n                            padding: EdgeInsets.only(left: getMediaQueryWidth(context, 0.03)),\n                            // width: getMediaQueryWidth(context, 0.5),\n                            child: Text(\n                              snapShot.data ?? \"N/A\",\n                              overflow: TextOverflow.fade,\n                              maxLines: 1,\n                              softWrap: false,\n                              style: TextStyle(fontSize: getMediaQueryWidth(context, 0.045), fontWeight: FontWeight.bold),\n                            ),\n                          );\n                        } else {\n                          return Shimmer.fromColors(\n                              baseColor: Colors.grey.shade300,\n                              highlightColor: Colors.grey.shade500,\n                              enabled: true,\n                              child: Container(\n                                padding: EdgeInsets.only(left: getMediaQueryWidth(context, 0.03)),\n                                child: Text(\"RT000000000000\", style: TextStyle(fontWeight: FontWeight.bold, fontSize: getMediaQueryWidth(context, 0.045))),\n                              ));\n                        }\n                      })\n                  : Container(\n                      padding: EdgeInsets.only(left: getMediaQueryWidth(context, 0.03)),\n                      child: Text(\n                        stopListController.navRoute.value.rName ?? \"\",\n                        overflow: TextOverflow.fade,\n                        maxLines: 1,\n                        softWrap: false,\n                        style: TextStyle(fontSize: getMediaQueryWidth(context, 0.045), fontWeight: FontWeight.bold),\n                      ),\n                    ),\n              if (stopListController.isRouteStarted.value && !stopListController.isHelper.value)\n                IconButton(\n                  onPressed: () {\n                    Get.dialog(\n                        barrierColor: Colors.black12,\n                        barrierDismissible: true,\n                        name: AppConstants.route_code,\n                        Dialog(\n                          elevation: 1,\n                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),\n                          backgroundColor: Colors.white,\n                          child: getQrDialog(),\n                        ));\n                  },\n                  splashColor: Colors.grey,\n                  splashRadius: 20,\n                  hoverColor: Colors.transparent,\n                  // isSelected: true,\n                  icon: Icon(\n                    Icons.qr_code_2_rounded,\n                    color: Colors.black,\n                    size: getMediaQueryWidth(context, 0.05),\n                  ),\n                )\n            ],\n          ),\n          Row(\n            children: [\n              GestureDetector(\n                onTap: () {\n                  if(stopListController.stopList.any((element) => element.value.locationType == \"LH\")){\n                    Utils.showAlertDialog(AppConstants.lhNotSupported);\n                    return;\n                  }\n                  Get.to(() => const ProgressView(),transition: appTransition);\n                  if( stopListController.stopList.any((element) => element.value.locationType == \"RC\" || element.value.locationType == \"RL\" )) {\n                    Utils.showAlertDialog(AppConstants.rrNotSupported);\n                  }\n                },\n                child: DBConstants.isOnline.value\n                    ? Icon(\n                        Icons.wifi,\n                        color: Colors.green,\n                        size: getMediaQueryWidth(context, 0.05),\n                      )\n                    : FadeTransition(\n                        opacity: _badgeAnimationController,\n                        child: Icon(\n                          CupertinoIcons.wifi_slash,\n                          size: getMediaQueryWidth(context, 0.05),\n                        )),\n              ),\n              SizedBox(\n                width: getMediaQueryWidth(context, 0.02),\n              ),\n              IconButton(\n                splashRadius: 1,\n                tooltip: !stopListController.isMapsOpen.value ? AppConstants.map : AppConstants.stop_list,\n                onPressed: () {\n                  // if (stopListController.isMapsOpen.value) {\n                  stopListController.isMapsInitialized.value = true;\n                  stopListController.isMapsOpen.value = !stopListController.isMapsOpen.value;\n                  // }\n                },\n                icon: stopListController.isMapsOpen.value ? Icon(Icons.format_line_spacing_sharp, color: Colors.indigoAccent.shade200) : Icon(Icons.map_rounded, color: Colors.indigoAccent.shade200),\n                iconSize: getMediaQueryWidth(context, 0.058),\n              ),\n              // if (stopListController.isRouteStarted.value && DBConstants.isOnline.value)\n              Visibility(\n                maintainAnimation: true,\n                maintainState: true,\n                visible: stopListController.isRouteStarted.value && DBConstants.isOnline.value,\n                child: IconButton(\n                  splashRadius: 8,\n                  onPressed: () async {\n                    if(await Utils.checkNetworkStatus()) {\n                      await Get.put<SwipeButtonController>(SwipeButtonController()).routeRefresh();\n                    }else{\n                      Utils.showToastMessage(AppConstants.internet_error_message);\n                    }\n                  },\n                  icon: const Icon(Icons.refresh),\n                  iconSize: getMediaQueryWidth(context, 0.058),\n                ).animate().fadeIn(curve: Curves.easeInOut, duration: const Duration(milliseconds: 600)),\n              )\n            ],\n          )\n        ],\n      ),\n    );\n  }\n\n  Widget _stopListAppBar() {\n    return Container(\n          // height: getMediaQueryHeight(context, 0.13),\n          margin: EdgeInsets.only(\n              left: getMediaQueryHeight(context, 0.015),\n              // bottom: getMediaQueryHeight(context, 0.002),\n              right: getMediaQueryHeight(context, 0.01),\n              top: getMediaQueryHeight(context, 0.02)),\n          child: Column(mainAxisSize: MainAxisSize.min, children: [\n            Row(\n              children: [\n                Material(\n                  elevation: 2,\n                  color: Colors.white,\n                  // shape: CircleBorder(side: BorderSide(color: Colors.grey)),\n                  borderRadius: BorderRadius.circular(20),\n                  child: InkWell(\n                    splashColor: Colors.blue.shade100,\n                    borderRadius: BorderRadius.circular(20),\n                    onTap: () {\n                      Get.back();\n                    },\n                    child: SizedBox(\n                      width: getMediaQueryWidth(context, 0.1),\n                      height: getMediaQueryWidth(context, 0.1),\n                      child: Row(\n                        mainAxisAlignment: MainAxisAlignment.center,\n                        children: [\n                          SizedBox(width: getMediaQueryWidth(context, 0.02)),\n                          const Icon(Icons.arrow_back_ios, color: Colors.black),\n                        ],\n                      ),\n                    ),\n                  ),\n                ),\n                SizedBox(width: getMediaQueryWidth(context, 0.05)),\n                SizedBox(\n                  width: getMediaQueryWidth(context, 0.5),\n                  child: Text(\n                    stopListController.getNavRoute?.rName ?? AppConstants.history,\n                    overflow: TextOverflow.fade,\n                    maxLines: 1,\n                    softWrap: false,\n                    style: TextStyle(fontSize: getMediaQueryWidth(context, 0.050), fontWeight: FontWeight.bold),\n                  ),\n                ),\n              ],\n            ),\n            SizedBox(height: getMediaQueryHeight(context, 0.01)),\n\n          ]));\n  }\n\n  Future getRouteNameAsync() async {\n    await Future.delayed(Duration.zero);\n    return SessionManager().getRouteName();\n  }\n\n  Widget getQrDialog() => GestureDetector(\n        onTap: () {\n          FocusManager.instance.primaryFocus?.unfocus();\n        },\n        child: Column(\n          mainAxisSize: MainAxisSize.min,\n          children: [\n            Align(\n              alignment: Alignment.topRight,\n              child: IconButton(\n                icon: const Icon(Icons.cancel),\n                onPressed: () {\n                  Get.back();\n                },\n              ),\n            ),\n            // Divider(),\n            QrImageView(\n              data: stopListController.databaseHelper.realm.all<NavRoute>().first.routeAccessCode!,\n              version: 10,\n              size: 200.0,\n            ),\n            const Divider(height: 0),\n            Row(\n              mainAxisAlignment: MainAxisAlignment.center,\n              children: [\n                // Centered Widget\n                Container(\n                  padding: EdgeInsets.all(getMediaQueryWidth(context, 0.06)),\n                  child: SelectableText(\n                    stopListController.databaseHelper.realm.all<NavRoute>().first.routeAccessCode!,\n                    style: TextLabelData.LARGE_BOLD_BLACK,\n                  ),\n                ),\n              ],\n            )\n          ],\n        ),\n      );\n\n  Widget _getMapCardView(Rx<StopsModel> stop, int index) {\n    Color setStopStatusColor(String stop) {\n      switch (stop) {\n        case RouteConstants.STATUS_COMPLETED:\n          return Colors.green;\n        case RouteConstants.STATUS_ARRIVED:\n          return Colors.yellow.shade700;\n        case RouteConstants.STATUS_IN_COMPLETE:\n          return Utils.hexColor(AppColor.inComplete);\n        case RouteConstants.STATUS_CANCELLED || RouteConstants.STATUS_CANCELLED || RouteConstants.STATUS_VERIFIED:\n          return Colors.red.shade400;\n        default:\n          return Colors.grey.shade300;\n      }\n    }\n\n    return GestureDetector(\n      onTap: () async {\n        Map? navigate = await stopListController.navigationHandler(index);\n        if (navigate != null) {\n          stopListController.isMapsOpen.value = true;\n          stopListController.mapPageController.jumpToPage(navigate['navigate_to'] as int);\n        }\n      },\n      child: FittedBox(\n        alignment: Alignment.bottomCenter,\n        fit: BoxFit.fitWidth,\n        child: Stack(\n          // fit: StackFit.expand,\n          alignment: Alignment.bottomCenter,\n          children: [\n            // Container(color: Colors.green,width:getMediaQueryWidth(context, 0.9),height: getMediaQueryHeight(context, 0.05),),\n            Padding(\n              padding: const EdgeInsets.only(left: 6.0, right: 6.0, bottom: 6.0, top: 6),\n              child: Container(\n                margin: EdgeInsets.only(top: getMediaQueryHeight(context, 0.015)),\n                // height: getMediaQueryHeight(context, 0.05),\n                decoration: BoxDecoration(border: Border.all(width: 1.4, color: setStopStatusColor(stop.value.status)), borderRadius: const BorderRadius.all(Radius.circular(14)), color: Colors.grey.shade100),\n                width: getMediaQueryWidth(context, 1),\n                child: Padding(\n                  padding: const EdgeInsets.all(8.0),\n                  child: Row(\n                    children: [\n                      SizedBox(\n                        width: getMediaQueryWidth(context, 0.8),\n                        child: Column(\n                          crossAxisAlignment: CrossAxisAlignment.start,\n                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,\n                          children: [\n                            Padding(\n                              padding: EdgeInsets.only(top: getMediaQueryHeight(context, 0.015), left: getMediaQueryWidth(context, 0.02)),\n                              child: Text(\n                                \"${stop.value.contactName}\",\n                                style: TextStyle(fontSize: getMediaQueryWidth(context, 0.038), fontWeight: FontWeight.bold),\n                              ),\n                            ),\n                            SizedBox(\n                              height: getMediaQueryHeight(context, 0.013),\n                            ),\n                            Padding(\n                                padding: EdgeInsets.only(left: getMediaQueryWidth(context, 0.02)),\n                                child: Text(\n                                  maxLines: 2,\n                                  '${Utils.getAddressLineForDriverApp(stop.value.location!.lAddress)}${stop.value.location!.lAddress!.addressLine2.isPresent ? ', ${stop.value.location!.lAddress!.addressLine2!}' : ''}',\n                                  // SampleText.SHORT_TEXT,\n                                  style: TextStyle(fontSize: getMediaQueryWidth(context, 0.03), overflow: TextOverflow.clip),\n                                )),\n                            // if (stop.value.location!.lAddress!.addressLine2.isPresent)\n                            //   Padding(\n                            //     padding: EdgeInsets.only(left: getMediaQueryWidth(context, 0.02)),\n                            //     child: Text(\n                            //       stop.value.location!.lAddress!.addressLine2!,\n                            //       style: TextStyle(\n                            //         fontSize: getMediaQueryWidth(context, 0.03),\n                            //         overflow: TextOverflow.ellipsis,\n                            //       ),\n                            //     ),\n                            //   ),\n                            SizedBox(\n                              height: getMediaQueryHeight(context, 0.005),\n                            ),\n                            Padding(\n                              padding: EdgeInsets.only(top: getMediaQueryWidth(context, 0.01), left: getMediaQueryWidth(context, 0.017)),\n                              child: Row(\n                                children: [\n                                  Icon(\n                                    Icons.calendar_month_rounded,\n                                    size: getMediaQueryWidth(context, 0.04),\n                                  ),\n                                  SizedBox(\n                                    width: getMediaQueryWidth(context, 0.01),\n                                  ),\n                                  Text(\n                                      Utils.isEmpty(stop.value.estimatedArrivalDateTime)\n                                          ? stop.value.estimatedDepartureDateTime != null\n                                              ? Utils.getDateFromUtc(DateTime.parse(stop.value.estimatedDepartureDateTime!))\n                                              : \"N/A\"\n                                          : Utils.getDateFromUtc(DateTime.parse(stop.value.estimatedArrivalDateTime ?? \"\")),\n                                      style: TextStyle(fontSize: getMediaQueryWidth(context, 0.032), fontWeight: FontWeight.bold)),\n                                ],\n                              ),\n                            ),\n                            SizedBox(\n                              height: getMediaQueryHeight(context, 0.009),\n                            ),\n                          ],\n                        ),\n                      ),\n                      Column(\n                        children: [\n                          Material(\n                            elevation: 2,\n                            color: Colors.indigoAccent.shade200,\n                            // shape: CircleBorder(side: BorderSide(color: Colors.grey)),\n                            borderRadius: BorderRadius.circular(20),\n                            child: InkWell(\n                              splashColor: Colors.blue.shade100,\n                              borderRadius: BorderRadius.circular(20),\n                              onTap: () async {\n                                await Utils.openMap(context, stop.value.latLong![1], stop.value.latLong![0]);\n                              },\n                              child: SizedBox(\n                                width: getMediaQueryWidth(context, 0.1),\n                                height: getMediaQueryWidth(context, 0.1),\n                                child: Row(\n                                  mainAxisAlignment: MainAxisAlignment.center,\n                                  children: [\n                                    Icon(\n                                      Icons.directions,\n                                      color: Colors.white,\n                                      size: getMediaQueryWidth(context, 0.065),\n                                    ),\n                                  ],\n                                ),\n                              ),\n                            ),\n                          ),\n                          SizedBox(\n                            height: getMediaQueryHeight(context, 0.01),\n                          ),\n                          Material(\n                            elevation: 2,\n                            color: Colors.white,\n                            // shape: CircleBorder(side: BorderSide(color: Colors.grey)),\n                            borderRadius: BorderRadius.circular(20),\n                            child: InkWell(\n                              splashColor: Colors.blue.shade100,\n                              borderRadius: BorderRadius.circular(20),\n                              onTap: () {\n                                  stopListController.makePhoneCall(stop.value.location?.phone ?? \"N/A\");\n                              },\n                              child: SizedBox(\n                                width: getMediaQueryWidth(context, 0.1),\n                                height: getMediaQueryWidth(context, 0.1),\n                                child: Row(\n                                  mainAxisAlignment: MainAxisAlignment.center,\n                                  children: [\n                                    Icon( Icons.call,\n                                      color: Colors.indigoAccent.shade200,\n                                      size: getMediaQueryWidth(context, 0.06),\n                                    ),\n                                  ],\n                                ),\n                              ),\n                            ),\n                          ),\n                        ],\n                      ),\n                    ],\n                  ),\n                ),\n              ),\n            ),\n            Positioned(\n              top: -getMediaQueryHeight(context, 0.017),\n              child: Ink(\n                color: Colors.white,\n                child: Container(\n                  width: getMediaQueryWidth(context, 0.083),\n                  height: getMediaQueryHeight(context, 0.083),\n                  decoration: BoxDecoration(\n                      // border: Border.all(color: Colors.grey,width: 1.3),\n                      color: setStopStatusColor(stop.value.status),\n                      shape: BoxShape.circle,\n                      boxShadow: [BoxShadow(blurRadius: 5, offset: const Offset(0, 5), color: Colors.grey.shade400)]),\n                  child: Align(\n                      alignment: Alignment.center,\n                      child: index == 0 || (stop.value.stopOrderSequence! > 0 && stop.value.locationType == \"WH\")\n                          ? Icon(Icons.home, color: Colors.black,size: getMediaQueryWidth(context, 0.048),)\n                          : Text(\n                              \"$index\",\n                              style: TextStyle(\n                                fontSize: getMediaQueryWidth(context, 0.035),\n                                fontWeight: FontWeight.bold,\n                              ),\n                            )),\n                ),\n              ),\n            ),\n          ],\n        ),\n      ),\n    );\n  }\n\n  ///main list with onTap\n  Widget stopListView() {\n    return Stack(\n      children: [\n        ListView.builder(\n          // physics: const AlwaysScrollableScrollPhysics(),\n          controller: stopListController.scrollController,\n          // physics: AppAnimation.physics,\n          itemCount: stopListController.stopList.length + 1,\n          itemBuilder: (BuildContext context, int index) => index == stopListController.stopList.length && stopListController.stopList.isNotEmpty\n              ? Container(\n                  height: getMediaQueryHeight(context, 0.1),\n                )\n              : stopListCard(stopListController.stopList[index], index),\n        ),\n      ],\n    );\n  }\n\n  Widget intermediateCard() {\n    return const Padding(\n      padding: EdgeInsets.only(top: 16.0),\n      child: Divider(color: Colors.black),\n    );\n  }\n\n  Widget stopListCard(Rx<StopsModel> stop, int index) {\n    return Center(\n      child: Container(\n          padding: EdgeInsets.only(bottom: index == stopListController.stopList.length - 1 ? getMediaQueryHeight(context, 0.05) : 00),\n          child: IntrinsicHeight(\n            child: Row(\n              mainAxisSize: MainAxisSize.min,\n              children: [\n                Column(\n                  mainAxisSize: MainAxisSize.min,\n                  mainAxisAlignment: MainAxisAlignment.center,\n                  children: [\n                    index > 0\n                        ? const Expanded(\n                            child: DottedLine(),\n                          )\n                        : const Expanded(child: SizedBox()),\n                    Tooltip(\n                      triggerMode: TooltipTriggerMode.tap,\n                      message: stop.value.status,\n                      child: Container(\n                        height: mqFont(0.048),\n                        width: mqFont(0.048),\n                        decoration: BoxDecoration(\n                            color: stop.value.status == RouteConstants.STATUS_PENDING ? Colors.grey.shade600 : setStopStatusColor(stop.value.status), border: const Border.fromBorderSide(BorderSide(color: Colors.black12)), shape: BoxShape.circle),\n                        child: FittedBox(\n                          fit: BoxFit.scaleDown,\n                          child: Center(\n                            child: stop.value.locationType == \"WH\"\n                                ? Icon(\n                                    Icons.home_rounded,\n                                    // CupertinoIcons.home,\n                                    size: getMediaQueryWidth(context, 0.030),\n                                    color: Colors.white,\n                                  )\n                                : Text(\n                                    \"${stop.value.stopOrderSequence}\",\n                                    style: const TextStyle(\n                                      color: Colors.white,\n                                      fontWeight: FontWeight.bold,\n                                      fontSize: 13,\n                                    ),\n                                  ),\n                          ),\n                        ),\n                      ),\n                    ),\n                    index != stopListController.stopList.length - 1 ? const Expanded(child: DottedLine()) : const Expanded(child: SizedBox()),\n                    const SizedBox(\n                      height: 4,\n                    )\n                  ],\n                ),\n                SizedBox(width: getMediaQueryWidth(context, 0.015)),\n                ShrinkContainer(\n                  child: StopListInnerCard(stopListController: stopListController, stop: stop.value),\n                  onTap: () async {\n                    await stopListController.navigationHandler(index);\n                  },\n                ),\n              ],\n            ),\n          )),\n    );\n  }\n\n  Widget stopListShimmerEffect() {\n    return Container(\n      width: getMediaQueryWidth(context, 0.98),\n      padding: EdgeInsets.only(left: 10.0, right: 10, top: getMediaQueryHeight(context, 0.016)),\n      child: Shimmer.fromColors(\n        baseColor: Colors.grey.shade200,\n        period: const Duration(milliseconds: 700),\n        highlightColor: Colors.grey.shade50,\n        enabled: true,\n        child: ListView.builder(\n          // physics: BouncingScrollPhysics(),\n          itemBuilder: (_, __) => Padding(\n            padding: EdgeInsets.only(bottom: getMediaQueryHeight(context, 0.01)),\n            child: Container(\n              height: getMediaQueryHeight(context, 0.285),\n              padding: const EdgeInsets.all(15),\n              decoration: BoxDecoration(border: Border.all(), borderRadius: BorderRadius.circular(10)),\n              child: Column(\n                crossAxisAlignment: CrossAxisAlignment.start,\n                children: <Widget>[\n                  Container(\n                    width: getMediaQueryWidth(context, 0.5),\n                    height: getMediaQueryHeight(context, 0.03),\n                    decoration: BoxDecoration(\n                      borderRadius: BorderRadius.circular(10),\n                      color: Colors.white,\n                    ),\n                  ),\n                  const Padding(\n                    padding: EdgeInsets.symmetric(vertical: 5),\n                  ),\n                  Container(\n                    decoration: BoxDecoration(\n                      borderRadius: BorderRadius.circular(10),\n                      color: Colors.white,\n                    ),\n                    width: getMediaQueryWidth(context, 0.7),\n                    height: getMediaQueryHeight(context, 0.03),\n                  ),\n                  const Padding(\n                    padding: EdgeInsets.symmetric(vertical: 2.0),\n                  ),\n                  Container(\n                    decoration: BoxDecoration(\n                      borderRadius: BorderRadius.circular(10),\n                      color: Colors.white,\n                    ),\n                    margin: EdgeInsets.only(top: getMediaQueryHeight(context, 0.009)),\n                    width: getMediaQueryWidth(context, 0.9),\n                    height: getMediaQueryHeight(context, 0.07),\n                  ),\n                  Container(\n                    decoration: BoxDecoration(\n                      borderRadius: BorderRadius.circular(10),\n                      color: Colors.white,\n                    ),\n                    margin: EdgeInsets.only(top: getMediaQueryHeight(context, 0.009)),\n                    width: getMediaQueryWidth(context, 0.9),\n                    height: getMediaQueryHeight(context, 0.07),\n                  ),\n                ],\n              ),\n            ),\n          ),\n          itemCount: 5,\n        ),\n      ),\n    );\n  }\n}\n\nclass MapView extends StatelessWidget {\n  const MapView({\n    super.key,\n    required this.stopListController,\n    required this.completer,\n  });\n\n  final StopListController stopListController;\n  final Completer<GoogleMapController> completer;\n\n  @override\n  Widget build(BuildContext context) {\n    return Container(\n      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300, width: 1)),\n      child: RepaintBoundary(\n        child: GoogleMap(\n            liteModeEnabled: false,\n            myLocationEnabled: true,\n            trafficEnabled: false,\n            buildingsEnabled: true,\n            // liteModeEnabled: true,\n            polylines: stopListController.polylinePoints,\n            markers: stopListController.markers,\n            zoomControlsEnabled: false,\n            mapToolbarEnabled: false,\n            myLocationButtonEnabled: false,\n            fortyFiveDegreeImageryEnabled: false,\n            indoorViewEnabled: false,\n            initialCameraPosition: CameraPosition(target: LatLng(stopListController.stopList.first.value.location!.lAddress!.coordinates!.last, stopListController.stopList.first.value.location!.lAddress!.coordinates!.first), zoom: 14),\n            onMapCreated: (GoogleMapController controller) {\n              stopListController.mapController = controller;\n              stopListController.mapController.setMapStyle(stopListController.mapStyle.value);\n              // if (!completer.isCompleted) {\n              completer.complete(controller);\n              // }\n            }),\n      ),\n    );\n  }\n}\n\nclass StopListInnerCard extends StatelessWidget with MediaQueryMethods {\n  StopListInnerCard({\n    required this.stopListController,\n    super.key,\n    required this.stop,\n  });\n\n  final StopListController stopListController;\n  final StopsModel stop;\n\n  final Widget expediteIcon = Image.asset('assets/icon/express-delivery.png',color: Colors.red,/* colorFilter: ColorFilter.mode(Colors.green.shade300, BlendMode.srcIn), semanticsLabel: 'label'*/);\n\n  @override\n  Widget build(BuildContext context) {\n    Duration? diff;\n    if (stop.estimatedDepartureDateTime != null) {\n      diff = DateTime.now().difference(DateTime.parse(stop.estimatedDepartureDateTime!).toLocal());\n    }\n    bool hasExpidite = false;\n    final List<StopOrdersModel> orders = [];\n\n    if (stop.locationType == \"LH\") {\n      orders.addAll(stop.lineHaulOrders ?? []);\n    } else if (stop.locationType == \"RL\") {\n      orders.addAll(stop.releaseOrders ?? []);\n    } else if (stop.locationType == \"RC\") {\n      orders.addAll(stop.releaseOrders ?? []);\n    } else {\n      orders.addAll(stop.stopOrders ?? []);\n    }\n\n    hasExpidite = orders.map((e) => e.hasExpidite).nonNulls.any((element) => element);\n\n    return Stack(\n      children: [\n        Container(\n          width: getMediaQueryWidth(context, 0.86),\n          decoration: BoxDecoration(\n            borderRadius: const BorderRadius.all(Radius.circular(14)),\n            color: stop.status == RouteConstants.STATUS_CANCELLED ? const Color.fromARGB(255, 255, 247, 247) : Colors.white,\n            border: Border.all(color: Colors.grey.shade300, width: 1, style: BorderStyle.solid, strokeAlign: BorderSide.strokeAlignInside),\n          ),\n          padding: EdgeInsets.only(\n            left: getMediaQueryWidth(context, 0.04),\n            right: getMediaQueryWidth(context, 0.04),\n            top: getMediaQueryWidth(context, 0.048),\n            bottom: getMediaQueryWidth(context, 0.048),\n          ),\n          margin: EdgeInsets.only(top: getMediaQueryWidth(context, 0.025), right: getMediaQueryWidth(context, 0.01)),\n          child: Column(\n            mainAxisSize: MainAxisSize.min,\n            crossAxisAlignment: CrossAxisAlignment.start,\n            children: <Widget>[\n              Row(\n                mainAxisAlignment: MainAxisAlignment.spaceBetween,\n                children: [\n                  Row(\n                    mainAxisSize: MainAxisSize.min,\n                    children: [\n                      (stop.locationType == \"RL\" || stop.locationType == \"RC\")\n                          ? Container(\n                              padding: EdgeInsets.only(right: getMediaQueryWidth(context, 0.01)),\n                              width: getMediaQueryWidth(context, 0.085),\n                              height: getMediaQueryWidth(context, 0.04),\n                              child: stop.locationType == \"RC\" ? Image.asset(recoveryIcon) : Image.asset(releaseIcon),\n                            )\n                          : (stop.locationType == \"LH\")\n                              ? Container(\n                                  padding: EdgeInsets.only(right: getMediaQueryWidth(context, 0.01)),\n                                  width: getMediaQueryWidth(context, 0.085),\n                                  height: getMediaQueryWidth(context, 0.055),\n                                  child: Image.asset(lineHaulIcon, color: Colors.indigo),\n                                )\n                              : const SizedBox.shrink(),\n                      SizedBox(\n                        width: getMediaQueryWidth(context, 0.65),\n                        child: Text(\n                          stop.locationType == \"WH\" ? stop.locationName ?? stop.contactName ?? AppConstants.warehouse : stop.contactName ?? \"N/A\",\n                          style: TextStyle(fontSize: getMediaQueryWidth(context, 0.036), fontWeight: FontWeight.w600),\n                          overflow: TextOverflow.fade,\n                        ),\n                      ),\n                    ],\n                  ),\n                  // if(hasExpidite) Row(\n                  //   children: [\n                  //     SizedBox(width: getMediaQueryWidth(context, 0.07),height: getMediaQueryWidth(context, 0.07),child: expediteIcon),\n                  //     SizedBox(width: getMediaQueryWidth(context, 0.0),height: getMediaQueryHeight(context, 0.035),),\n                  //   ],\n                  // ),\n                ],\n              ),\n              const SizedBox(height: 4),\n              if (!Utils.isEmpty(stop.location?.companyName))\n                Row(\n                  crossAxisAlignment: CrossAxisAlignment.end,\n                  children: [\n                    Icon(\n                      CupertinoIcons.building_2_fill,\n                      size: getMediaQueryWidth(context, 0.05),\n                      color: Colors.grey.shade600,\n                    ),\n                    SizedBox(\n                      width: getMediaQueryWidth(context, 0.01),\n                    ),\n                    Text(\n                      stop.location?.companyName ?? \"N/A\",\n                      textAlign: TextAlign.end,\n                      style: TextStyle(color: Colors.grey.shade700, fontSize: getMediaQueryWidth(context, 0.036), fontWeight: FontWeight.bold),\n                    ),\n                  ],\n                ),\n              const SizedBox(height: 4),\n              Text(\n                // SampleText.MEDIUM_TEXT,\n                Utils.getAddressLineForDriverApp(stop.location!.lAddress).trim(),\n                // getAddress(stop.location?.lAddress) ??\n                // \"N/A\",\n                style: TextStyle(fontSize: getMediaQueryWidth(context, 0.034), fontWeight: FontWeight.w500),\n              ),\n              const SizedBox(height: 12),\n              // Divider(),\n              Text(\n                \"${Utils.getDateFromUtc(DateTime.tryParse(stop.estimatedArrivalDateTime ?? \"\"))} - ${Utils.getDateFromUtc(DateTime.tryParse(stop.estimatedDepartureDateTime ?? \"\"))}\",\n                style: TextStyle(color: Colors.black87, fontSize: getMediaQueryWidth(context, 0.034), fontWeight: FontWeight.w400),\n              ),\n              if (stopListController.isRouteStarted.value && stopListController.isEtaInitialized.value)\n                Visibility(\n                  visible: stop.locationType != \"LH\" &&\n                      (stopListController.etaController?.stopEta.eta[stop.id!] != null) &&\n                      (stop.locationType != \"WH\" &&\n                          stop.status == RouteConstants.STATUS_PENDING &&\n                          ((stopListController.etaController?.stopEta.eta[stop.id!]!.showEta) ?? false) &&\n                          !((stopListController.etaController?.stopEta.eta[stop.id!]!.isCompleted) ?? true)),\n                  child: getEtaWidget(context),\n                )\n            ],\n          ),\n        ),\n         Positioned.fill(\n            top: getMediaQueryWidth(context, 0.05),\n            right: getMediaQueryWidth(context, 0.05),\n            child: Align(\n              alignment: Alignment.topRight,\n              child: Row(\n                mainAxisAlignment: MainAxisAlignment.end,\n                children: [\n                  if(hasExpidite)...[SizedBox(width: getMediaQueryWidth(context, 0.06),height: getMediaQueryWidth(context, 0.06),child:\n                  Tooltip(\n                      enableFeedback: true,\n                      showDuration: const Duration(seconds: 4),\n                      decoration: BoxDecoration(\n                          color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(3, 3))]),\n                      triggerMode: TooltipTriggerMode.tap,\n                      richMessage: TextSpan(text: \"Expedite\".toUpperCase(), style: TextStyle(color: Colors.red, fontSize: getFontSize(context, 0.04), overflow: TextOverflow.ellipsis)),\n                      child: expediteIcon)),\n                  SizedBox(width: getMediaQueryWidth(context, 0.02)),],\n                if (stop.locationType != \"WH\" &&  stop.estimatedDepartureDateTime != null && diff != null && stop.status == RouteConstants.STATUS_PENDING &&\n                    (DateTime.tryParse(stop.estimatedDepartureDateTime ?? stop.estimatedArrivalDateTime ?? \"\")?.isBefore(DateTime.now().add(const Duration(minutes: 1))) ?? false))\n                  Tooltip(\n                    enableFeedback: true,\n                    showDuration: const Duration(seconds: 4),\n                    decoration: BoxDecoration(\n                        color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(3, 3))]),\n                    triggerMode: TooltipTriggerMode.tap,\n                    richMessage: TextSpan(text: AppConstants.stopDelayedBy, style: const TextStyle(color: Colors.black, fontSize: 13, overflow: TextOverflow.ellipsis), children: [\n                      TextSpan(\n                        text:\n                            \"${diff.inDays > 0 ? \"${diff.inDays}${diff.inDays > 1 ? AppConstants.days : AppConstants.day}\" : \"\"}${diff.inHours > 0 ? \" ${diff.inHours - (diff.inDays * 24)}${AppConstants.hrs}\" : \"\"} ${diff.inMinutes - (diff.inHours * 60)}${AppConstants.min}\",\n                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.redAccent),\n                      )\n                    ]),\n                    child: Icon(\n                      Icons.warning_amber_rounded,\n                      color: Colors.red,\n                      size: getMediaQueryWidth(context, 0.04),\n                    ),\n                  ),\n              ],\n            ),\n            ),\n          )\n      ],\n    );\n  }\n\n  Widget getEtaWidget(BuildContext context) {\n    return GetBuilder(\n        init: stopListController.etaController,\n        id: stop.id!,\n        initState: (state) {},\n        builder: (controller) {\n          bool showEta = controller.stopEta.eta[stop.id!]?.distanceUi != null || controller.stopEta.eta[stop.id!]?.timeUi != null;\n          bool isEtaDelayed = (controller.stopEta.eta[stop.id!]?.stop?.estimatedArrivalTime.isPresent ?? false) &&\n              DateTime.parse(controller.stopEta.eta[stop.id!]?.stop!.estimatedArrivalTime ?? \"\").toLocal().isBefore(DateTime.now().add(Duration(seconds: controller.stopEta.eta[stop.id!]?.estimatedTravelTime?.toInt() ?? 0)));\n          return showEta\n              ? ShrinkContainer(\n            onTap: () async {\n              if (await Utils.checkNetworkStatus()) {\n                await Get.to(\n                    () => EtaView(\n                          etaController: stopListController.etaController!,\n                          stopId: stop.id!,\n                        ),\n                    duration: const Duration(milliseconds: 200),\n                    transition: Transition.cupertino);\n                stopListController.stopList.refresh();\n                stopListController.navRoute.refresh();\n              } else {\n                Utils.showToastMessage(AppConstants.internet_error_message, type: ToastificationType.warning);\n              }\n            },\n            child: Container(\n              margin: EdgeInsets.only(top: getMediaQueryHeight(context, 0.02)),\n              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade300, width: 0.5)),\n              padding: EdgeInsets.symmetric(vertical: getMediaQueryWidth(context, 0.01), horizontal: getMediaQueryWidth(context, 0.02)),\n              child: Row(\n                mainAxisAlignment: MainAxisAlignment.spaceBetween,\n                children: [\n                  Column(\n                    mainAxisAlignment: MainAxisAlignment.center,\n                    crossAxisAlignment: CrossAxisAlignment.start,\n                    children: [\n                      Row(\n                        children: [\n                          Column(\n                            crossAxisAlignment: CrossAxisAlignment.start,\n                            mainAxisAlignment: MainAxisAlignment.center,\n                            children: [\n                              Text(\n                                AppConstants.distance,\n                                style: TextStyle(color: Colors.grey, fontSize: mqFont(context, 0.035)),\n                              ),\n                              SizedBox(\n                                height: getMediaQueryHeight(context, 0.005),\n                              ),\n                              Text(AppConstants.time, style: TextStyle(color: Colors.grey, fontSize: mqFont(context, 0.035))),\n                            ],\n                          ),\n                          SizedBox(\n                            width: getMediaQueryWidth(context, 0.04),\n                          ),\n                          Column(\n                            crossAxisAlignment: CrossAxisAlignment.start,\n                            mainAxisAlignment: MainAxisAlignment.center,\n                            children: [\n                              Text(controller.stopEta.eta[stop.id!]?.distanceUi ?? \"N/A\", style: TextStyle(fontSize: mqFont(context, 0.035))),\n                              SizedBox(\n                                height: getMediaQueryHeight(context, 0.005),\n                              ),\n                              Text(controller.stopEta.eta[stop.id!]?.timeUi ?? \"N/A\", style: TextStyle(fontSize: mqFont(context, 0.035)))\n                            ],\n                          )\n                        ],\n                      )\n                    ],\n                  ),\n                  Container(\n                    height: getMediaQueryHeight(context, 0.04),\n                    width: getMediaQueryHeight(context, 0.04),\n                    decoration: const BoxDecoration(\n                        // color: Colors.indigo.shade600,\n                        // borderRadius: BorderRadius.circular(20),\n                        ),\n                    child: Tooltip(\n                      triggerMode: TooltipTriggerMode.longPress,\n                      message: isEtaDelayed ? AppConstants.estimated_time : AppConstants.on_time,\n                      child: Transform.rotate(\n                        angle: 0,\n                        child: Icon(\n                          Icons.notifications_active_rounded,\n                          color: isEtaDelayed ? Colors.red.shade600 : Colors.indigo.shade400,\n                          size: mqFont(context, 0.055),\n                        ),\n                      ),\n                    ),\n                  )\n                ],\n              ),\n            ),\n          )\n              : const SizedBox.shrink();\n        });\n  }\n}\n\nclass DottedLine extends StatelessWidget {\n  const DottedLine({super.key});\n\n  @override\n  Widget build(BuildContext context) {\n    return CustomPaint(\n      painter: DottedLinePainter(),\n      child: Container(),\n    );\n  }\n}\n\nclass DottedLinePainter extends CustomPainter {\n  @override\n  void paint(Canvas canvas, Size size) {\n    final paint = Paint()\n      ..color = Colors.black\n      ..strokeWidth = 1;\n\n    var max = size.height;\n    var dashWidth = 5;\n    var dashSpace = 5;\n    var startY = 0;\n\n    while (max >= 0) {\n      canvas.drawLine(Offset(0, startY.toDouble()), Offset(0, (startY + dashWidth).toDouble()), paint);\n      final space = (startY + dashWidth + dashSpace);\n      startY = space;\n      max -= dashWidth + dashSpace;\n    }\n  }\n\n  @override\n  bool shouldRepaint(CustomPainter oldDelegate) => false;\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/fleetenable-driver-app/lib/routes/stop_list_screen/view/stop_list_view.dart b/fleetenable-driver-app/lib/routes/stop_list_screen/view/stop_list_view.dart
+--- a/fleetenable-driver-app/lib/routes/stop_list_screen/view/stop_list_view.dart	
++++ b/fleetenable-driver-app/lib/routes/stop_list_screen/view/stop_list_view.dart	
+@@ -168,9 +168,9 @@
+             crossAxisAlignment: CrossAxisAlignment.end,
+             mainAxisAlignment: MainAxisAlignment.end,
+             children: [
+-            Padding(padding: EdgeInsets.only(right: getMediaQueryWidth(context, 0.02)),child:FloatingActionButton(onPressed: () {
++            Padding(padding: EdgeInsets.only(right: getMediaQueryWidth(context, 0.02),bottom: getMediaQueryHeight(context, 0.01)),child:FloatingActionButton(onPressed: () {
+               Get.to(IftaView());
+-            },child: Icon(Icons.format_color_fill_rounded,size: 22,),),),
++            },child: const Icon(Icons.format_color_fill_rounded,size: 22,),),),
+             (stopListController.isHelper.isFalse && stopListController.isUiLoaded.value && stopListController.isHistory.isFalse) ? slideBar(context) : const SizedBox.shrink()
+           ],);
+         }),
+Index: fleetenable-driver-app/lib/routes/ifta_form/view/ifta_view.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import 'dart:convert';\nimport 'dart:typed_data';\n\nimport 'package:fleet_enable/Utils/utils.dart';\nimport 'package:fleet_enable/constant/app_lang_constants.dart';\nimport 'package:fleet_enable/routes/base_route.dart';\nimport 'package:fleet_enable/routes/ifta_form/controller/ifta_controller.dart';\nimport 'package:fleet_enable/routes/ifta_form/view/vehicle_inspection_report.dart';\nimport 'package:fleet_enable/services/session_manager.dart';\nimport 'package:fleet_enable/widgets/common_widgets.dart';\nimport 'package:fleet_enable/widgets/signature_widget/signature_controller.dart';\nimport 'package:flutter/cupertino.dart';\nimport 'package:flutter/material.dart';\nimport 'package:get/get.dart';\nimport 'package:hand_signature/signature.dart';\nimport 'package:intl/intl.dart';\nimport 'package:shared_preferences/shared_preferences.dart';\n\nclass IftaView extends StatefulWidget {\n  const IftaView({super.key});\n\n  @override\n  State<IftaView> createState() => _IftaViewState();\n}\n\nclass _IftaViewState extends BaseRoute<IftaView> {\n  final IftaFormController controller = Get.put(IftaFormController());\n  final TextEditingController textEditingController = TextEditingController();\n  final TextEditingController commentController = TextEditingController();\n  late SignaturePageController signaturePageController = Get.put(SignaturePageController());\n\n  SessionManager sessionManager = SessionManager();\n\n  String currentDate = DateFormat.yMMMd('en_US').format(DateTime.now());\n  List<TextEditingController> gallonsControllers = [TextEditingController()];\n\n  BoxDecoration bd = BoxDecoration(\n    color: Colors.white,\n    borderRadius: BorderRadius.circular(10),\n    border: Border.all(color: Colors.grey.shade300, width: 1.5),\n    boxShadow: [\n      BoxShadow(\n        color: Colors.grey.shade200,\n        offset: const Offset(11, 11),\n        blurRadius: 10,\n      ),\n    ],\n  );\n\n  void _addNewGallonsField() {\n    setState(() {\n      gallonsControllers.add(TextEditingController());\n    });\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    return Scaffold(\n      body: SafeArea(\n        child: Padding(\n          padding: EdgeInsets.all(16.0),\n          child: Column(\n            crossAxisAlignment: CrossAxisAlignment.start,\n            children: [\n              Row(\n                children: [\n                  Material(\n                    elevation: 2,\n                    color: Colors.white,\n                    borderRadius: BorderRadius.circular(20),\n                    child: InkWell(\n                      splashColor: Colors.blue.shade100,\n                      borderRadius: BorderRadius.circular(20),\n                      onTap: () {\n                        Get.back();\n                      },\n                      child: SizedBox(\n                        width: getMediaQueryWidth(context, 0.09),\n                        height: getMediaQueryWidth(context, 0.09),\n                        child: Row(\n                          mainAxisAlignment: MainAxisAlignment.center,\n                          children: [\n                            SizedBox(width: getMediaQueryWidth(context, 0.02)),\n                            const Icon(Icons.arrow_back_ios, color: Colors.black),\n                          ],\n                        ),\n                      ),\n                    ),\n                  ),\n                  SizedBox(width: getMediaQueryWidth(context, 0.05)),\n                  Text(\n                    'IFTA Form',\n                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),\n                  ),\n                  Spacer(),\n                  Text(currentDate, style: TextStyle(fontSize: 16.0)),\n                ],\n              ),\n              SizedBox(height: getMediaQueryHeight(context, 0.01)),\n              Expanded(\n                child: SingleChildScrollView(\n                  child: Column(\n                    crossAxisAlignment: CrossAxisAlignment.start,\n                    children: [\n                      _buildContainer([\n                        _buildTextField('Driver Name:', controller.driverName),\n                        _buildTextField('Truck No.:', controller.truckNo),\n                        SizedBox(height: getMediaQueryHeight(context, 0.007)),\n                        _buildOdometerField(context, 'Odometer Reading Start:', controller.odometerStart, Icons.photo_camera_outlined),\n                        SizedBox(height: getMediaQueryHeight(context, 0.009)),\n                        _buildOdometerField(context, 'Odometer Reading Finish:', controller.odometerFinish, Icons.photo_camera_outlined),\n                      ]),\n                      SizedBox(height: getMediaQueryHeight(context, 0.007)),\n                      _buildContainer([\n                        _buildDistanceTravelledField('Distance Travelled Using GPS:', '${controller.distanceTravelledGPS} mi'),\n                        SizedBox(\n                          height: getMediaQueryHeight(context, 0.01),\n                        ),\n                        _buildDistanceTravelledField('Distance Travelled (Odometer):', '--'),\n                      ]),\n                      SizedBox(height: getMediaQueryHeight(context, 0.007)),\n                      _buildContainer([\n                        _buildStateMilesContainer(context),\n                      ]),\n                      SizedBox(height: getMediaQueryHeight(context, 0.007)),\n                      _buildContainer([\n                        _buildTextField('Refuel State:', controller.refuelState),\n                        SizedBox(\n                          height: getMediaQueryHeight(context, 0.015),\n                        ),\n                        _buildGallonsField(controller),\n                      ]),\n                      SizedBox(height: getMediaQueryHeight(context, 0.007)),\n                      _buildContainer([_buildVehicleInspectionButton()]),\n                      SizedBox(height: getMediaQueryHeight(context, 0.007)),\n                      _buildContainer([\n                        _buildSignatureField(),\n                      ]),\n                    ],\n                  ),\n                ),\n              ),\n              SizedBox(height: getMediaQueryHeight(context, 0.01)),\n              SizedBox(\n                width: double.infinity,\n                height: getMediaQueryHeight(context, 0.05),\n                child: ElevatedButton(\n                  onPressed: () {},\n                  style: ElevatedButton.styleFrom(\n                    backgroundColor: Colors.indigoAccent,\n                  ),\n                  child: Text(\n                    'Update',\n                    style: TextStyle(fontSize: 18),\n                  ),\n                ),\n              ),\n            ],\n          ),\n        ),\n      ),\n    );\n  }\n\n  Widget _buildContainer(List<Widget> children) {\n    return Container(\n      margin: EdgeInsets.symmetric(vertical: getMediaQueryWidth(context, 0.01)),\n      padding: EdgeInsets.all(getMediaQueryHeight(context, 0.01)),\n      decoration: bd,\n      child: Column(\n        children: children,\n      ),\n    );\n  }\n\n  Widget _buildTextField(String label, RxString value) {\n    return Row(\n      children: [\n        Expanded(\n          flex: 2,\n          child: Text(\n            label,\n            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),\n          ),\n        ),\n        Expanded(\n          flex: 3,\n          child: Obx(() => Container(\n                padding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01), horizontal: getMediaQueryWidth(context, 0.04)),\n                child: Text(\n                  value.value,\n                  style: TextStyle(fontSize: 16),\n                ),\n              )),\n        ),\n      ],\n    );\n  }\n\n  Widget _buildOdometerField(BuildContext context, String label, RxString value, IconData icon) {\n    return Row(\n      crossAxisAlignment: CrossAxisAlignment.start,\n      children: [\n        Expanded(\n          flex: 4,\n          child: Column(\n            crossAxisAlignment: CrossAxisAlignment.start,\n            children: [\n              Text(\n                label,\n                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),\n              ),\n              SizedBox(height: getMediaQueryHeight(context, 0.01)),\n              Container(\n                  height: getMediaQueryHeight(context, 0.038),\n                  // decoration: BoxDecoration(\n                  //   border: Border.all(color: Colors.grey),\n                  //   borderRadius: BorderRadius.circular(5),\n                  // ),\n                  padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),\n                  child: textField()\n                  //     TextField(\n                  //   controller: TextEditingController(text: value.value),\n                  //   decoration: InputDecoration(\n                  //     contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.015)),\n                  //     border: InputBorder.none,\n                  //   ),\n                  //   onChanged: (val) => value.value = val,\n                  // ),\n                  ),\n            ],\n          ),\n        ),\n        SizedBox(width: getMediaQueryWidth(context, 0.02)),\n        Column(\n          children: [\n            SizedBox(height: getMediaQueryHeight(context, 0.035)), // Adjust this to align the icon with the text field\n            IconButton(\n              icon: Icon(icon),\n              onPressed: () {\n                // Handle camera button press\n              },\n            ),\n          ],\n        ),\n      ],\n    );\n  }\n\n  Widget _buildDistanceTravelledField(String label, String value) {\n    return Row(\n      children: [\n        Expanded(\n            flex: 2,\n            child: Text(\n              label,\n              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),\n            )),\n        Expanded(\n          flex: 1,\n          child: Container(\n            // decoration: BoxDecoration(\n            //   border: Border.all(color: Colors.grey),\n            //   borderRadius: BorderRadius.circular(5),\n            // ),\n            padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.1), vertical: getMediaQueryHeight(context, 0.01)),\n            child: Text(value),\n          ),\n        ),\n      ],\n    );\n  }\n\n  Widget textField() {\n    return TextFormField(\n      controller: textEditingController,\n      onTapOutside: (event) {\n        FocusManager.instance.primaryFocus?.unfocus();\n      },\n      decoration: InputDecoration(\n        filled: true,\n        fillColor: Colors.grey.shade200,\n        hintText: 'miles',\n        hintStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black12),\n        border: OutlineInputBorder(\n          borderRadius: BorderRadius.only(topLeft: Radius.circular(10),topRight: Radius.circular(10),bottomLeft: Radius.circular(10),bottomRight: Radius.circular(10))\n        ),\n        // UnderlineInputBorder(\n        //   borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),\n        //   borderSide: BorderSide(color: Colors.grey.shade300),\n        // ),\n        contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryWidth(context, 0.025), horizontal: getMediaQueryWidth(context, 0.03)),\n        errorBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.red), borderRadius: BorderRadius.circular(10)),\n        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.indigo), borderRadius: BorderRadius.circular(10)),\n        focusColor: Colors.indigo,\n      ),\n      validator: (value) {\n        return null;\n      },\n    );\n  }\n\n  Widget textFieldTwo() {\n    return TextFormField(\n      controller: commentController,\n      onTapOutside: (event) {\n        FocusManager.instance.primaryFocus?.unfocus();\n      },\n      decoration: InputDecoration(\n        filled: true,\n        fillColor: Colors.grey.shade200,\n        hintStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600),\n        border: OutlineInputBorder(\n          borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10), bottomRight: Radius.circular(10), bottomLeft: Radius.circular(10)),\n          borderSide: BorderSide(color: Colors.grey.shade300),\n        ),\n        contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryWidth(context, 0.025), horizontal: getMediaQueryWidth(context, 0.03)),\n        errorBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.red), borderRadius: BorderRadius.circular(10)),\n        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.indigo), borderRadius: BorderRadius.circular(10)),\n        focusColor: Colors.indigo,\n      ),\n      validator: (value) {\n        return null;\n      },\n    );\n  }\n\n  Widget _buildGallonsField(IftaFormController controller) {\n    return Column(\n      crossAxisAlignment: CrossAxisAlignment.start,\n      children: [\n        Row(\n          children: [\n            Expanded(\n                flex: 2,\n                child: Text(\n                  'Gallons:',\n                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),\n                )),\n            Expanded(\n              flex: 4,\n              child: Container(\n                  height: getMediaQueryHeight(context, 0.038),\n                  // decoration: BoxDecoration(\n                  //   border: Border.all(color: Colors.grey),\n                  //   borderRadius: BorderRadius.circular(5),\n                  // ),\n                  padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),\n                  child: textFieldTwo()\n                  // TextField(\n                  //   controller: TextEditingController(text: controller.gallons.value),\n                  //   decoration: InputDecoration(\n                  //     contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.015)),\n                  //     border: InputBorder.none,\n                  //   ),\n                  //   onChanged: (val) => controller.gallons.value = val,\n                  // ),\n                  ),\n            ),\n          ],\n        ),\n        SizedBox(height: getMediaQueryHeight(context, 0.01)),\n        Row(\n          mainAxisAlignment: MainAxisAlignment.spaceBetween,\n          children: [\n            Icon(\n              Icons.info_outline_rounded,\n              size: 20,\n            ),\n            SizedBox(\n              width: getMediaQueryWidth(context, 0.025),\n            ),\n            Expanded(\n              child: Text(\n                \"Please click on the plus sign if \\n multiple times filled fuels\",\n                style: TextStyle(fontSize: 14),\n                overflow: TextOverflow.ellipsis,\n              ),\n            ),\n            IconButton(\n              icon: Icon(Icons.add_circle_outline_sharp, size: 25),\n              onPressed: () {\n                _addNewGallonsField();\n              },\n            ),\n          ],\n        ),\n      ],\n    );\n  }\n\n  Widget _buildVehicleInspectionButton() {\n    return GestureDetector(\n      onTap: () => Get.to(() => VehicleInspectionReportPage()),\n      child: Container(\n        // margin: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01)),\n        padding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01)),\n        child: Row(\n          mainAxisAlignment: MainAxisAlignment.spaceBetween,\n          children: [\n            Text('Vehicle Inspection Report', style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),\n            Icon(Icons.arrow_forward_ios, color: Colors.black, size: 22),\n          ],\n        ),\n      ),\n    );\n  }\n\n  // Widget _buildStateMilesField(BuildContext context, String state, RxString miles) {\n  //   return Container(\n  //     padding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01), horizontal: getMediaQueryWidth(context, 0.02)),\n  //     decoration: BoxDecoration(\n  //       color: Colors.white,\n  //       borderRadius: BorderRadius.circular(10),\n  //       border: Border.all(color: Colors.grey.shade300, width: 1.5),\n  //       boxShadow: [\n  //         BoxShadow(\n  //           color: Colors.grey.shade200,\n  //           offset: const Offset(11, 11),\n  //           blurRadius: 10,\n  //         ),\n  //       ],\n  //     ),\n  //     child: Column(\n  //       crossAxisAlignment: CrossAxisAlignment.start,\n  //       children: [\n  //         Text(\n  //           'Miles by state:',\n  //           style: TextStyle(\n  //             fontWeight: FontWeight.bold,\n  //             fontSize: 18,\n  //             letterSpacing: 1,\n  //           ),\n  //         ),\n  //         SizedBox(height: getMediaQueryHeight(context, 0.01)),\n  //         Row(\n  //           children: [\n  //             Expanded(\n  //               flex: 1,\n  //               child: Text(\n  //                 state,\n  //                 style: TextStyle(\n  //                   fontWeight: FontWeight.bold,\n  //                   fontSize: 18,\n  //                   letterSpacing: 1,\n  //                 ),\n  //               ),\n  //             ),\n  //             Expanded(\n  //               flex: 4,\n  //               child: Container(\n  //                 height: getMediaQueryHeight(context, 0.04),\n  //                 padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),\n  //                 child: textFieldTwo(),\n  //               ),\n  //             ),\n  //           ],\n  //         ),\n  //       ],\n  //     ),\n  //   );\n  // }\n\n/*  Widget _buildStateMilesField(BuildContext context, String state, RxString miles) {\n    return Row(\n      children: [\n        Expanded(flex: 1, child: Text(state,style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18,letterSpacing: 1),)),\n        Expanded(\n          flex: 4,\n          child:  Container(\n\n              height: getMediaQueryHeight(context, 0.04),\n              padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),\n              child:\n              textFieldTwo()\n              // TextField(\n              //   controller: TextEditingController(text: miles.value),\n              //   decoration: InputDecoration(\n              //     contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.015)),\n              //     border: InputBorder.none,\n              //   ),\n              //   onChanged: (val) => miles.value = val,\n              // ),\n            ),\n          ),\n      ],\n    );\n  }*/\n\n  Widget _buildStateMilesContainer(BuildContext context) {\n    return Container(\n      padding: EdgeInsets.all(getMediaQueryWidth(context, 0.015)),\n      // decoration: BoxDecoration(\n      //   color: Colors.white,\n      //   borderRadius: BorderRadius.circular(10),\n      //   border: Border.all(color: Colors.grey.shade300, width: 1.5),\n      //   boxShadow: [\n      //     BoxShadow(\n      //       color: Colors.grey.shade200,\n      //       offset: const Offset(11, 11),\n      //       blurRadius: 10,\n      //     ),\n      //   ],\n      // ),\n      child: Column(\n        crossAxisAlignment: CrossAxisAlignment.start,\n        children: [\n          Text(\n            'Miles by State:',\n            style: TextStyle(\n              fontWeight: FontWeight.bold,\n              fontSize: 16,\n              letterSpacing: 1,\n            ),\n          ),\n          SizedBox(height: getMediaQueryHeight(context, 0.014)),\n          _buildStateMilesField(context, 'MO', controller.moMiles),\n          SizedBox(height: getMediaQueryHeight(context, 0.01)),\n          _buildStateMilesField(context, 'KS', controller.ksMiles),\n          SizedBox(height: getMediaQueryHeight(context, 0.01)),\n          _buildStateMilesField(context, 'IA', controller.iaMiles),\n        ],\n      ),\n    );\n  }\n\n  Widget _buildStateMilesField(BuildContext context, String state, RxString miles) {\n    return Row(\n      children: [\n        Expanded(\n          flex: 1,\n          child: Text(\n            state,\n            style: TextStyle(\n              fontWeight: FontWeight.bold,\n              fontSize: 15,\n              letterSpacing: 1,\n            ),\n          ),\n        ),\n        Expanded(\n          flex: 6,\n          child: Container(\n            height: getMediaQueryHeight(context, 0.038),\n            padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),\n            child: textFieldTwo(),\n          ),\n        ),\n      ],\n    );\n  }\n\n  Widget _buildSignatureField() {\n    return GestureDetector(\n      onTap: () async {\n        await signaturePad();\n      },\n      child: Container(\n        height: getMediaQueryHeight(context, 0.045),\n        // margin: EdgeInsets.symmetric(vertical: 20.0),\n        padding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01)),\n        child: Row(\n          mainAxisAlignment: MainAxisAlignment.center,\n          children: [\n            Image.asset(\"assets/icon/signature.png\", color: Colors.grey,width: getMediaQueryWidth(context, 0.12), height: getMediaQueryWidth(context, 0.2)),\n            Text('Tap to sign', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1)),\n            // Icon(Icons.create, color: Colors.blue),\n          ],\n        ),\n      ),\n    );\n  }\n\n  Future<void> _saveSignature(Uint8List? signature) async {\n    if (signature == null) return;\n    final prefs = await SharedPreferences.getInstance();\n    String base64Signature = base64Encode(signature);\n    await prefs.setString('signature', base64Signature);\n  }\n\n/*  Future<void> _clearSignature() async {\n    final prefs = await SharedPreferences.getInstance();\n    await prefs.remove('signature');\n  }*/\n\n  Future<void> _loadSignature() async {\n    final prefs = await SharedPreferences.getInstance();\n    String? base64Signature = prefs.getString('signature');\n\n    if (base64Signature != null) {\n      Uint8List signature = base64Decode(base64Signature);\n    }\n  }\n\n  Future signaturePad() async {\n    return await showCupertinoDialog(\n      context: context,\n      builder: (context) {\n        return SafeArea(\n          child: Column(\n            mainAxisAlignment: MainAxisAlignment.center,\n            children: [\n              Container(\n                color: Colors.white,\n                width: getMediaQueryWidth(context, 0.9),\n                height: getMediaQueryHeight(context, 0.1),\n                child: Material(\n                  child: Row(\n                    mainAxisSize: MainAxisSize.max,\n                    mainAxisAlignment: MainAxisAlignment.spaceBetween,\n                    children: [\n                      Row(\n                        mainAxisSize: MainAxisSize.max,\n                        mainAxisAlignment: MainAxisAlignment.center,\n                        children: [\n                          Container(\n                            alignment: Alignment.center,\n                            decoration: const BoxDecoration(shape: BoxShape.circle),\n                            height: getMediaQueryHeight(context, 0.05),\n                            width: getMediaQueryWidth(context, 0.2),\n                            child: Material(\n                              child: IconButton(\n                                onPressed: () {\n                                  Get.back();\n                                },\n                                icon: Transform.rotate(\n                                  angle: 1.5,\n                                  child: Icon(\n                                    Icons.cancel,\n                                    color: Colors.red,\n                                    size: getMediaQueryWidth(context, 0.07),\n                                  ),\n                                ),\n                              ),\n                            ),\n                          ),\n                        ],\n                      ),\n                      Row(\n                        children: [\n                          IconButton(\n                              onPressed: () async {\n                                try {\n                                  Get.back();\n                                  setState(() {});\n                                } catch (ex) {\n                                  Utils.showToastMessage(AppConstants.failed_signature);\n                                }\n                              },\n                              icon: Transform.rotate(angle: 1.5, child: const Icon(Icons.check))),\n                          SizedBox(\n                            width: getMediaQueryWidth(context, 0.02),\n                          ),\n                          IconButton(\n                              onPressed: () {\n                                // surveyController.signaturePageController.clear();\n                              },\n                              icon: Transform.rotate(angle: 1.5, child: const Icon(Icons.undo_rounded))),\n                        ],\n                      )\n                    ],\n                  ),\n                ),\n              ),\n              SizedBox(\n                height: getMediaQueryHeight(context, 0.8),\n                width: getMediaQueryWidth(context, 0.9),\n                child: Container(\n                  color: Colors.white,\n                  child: Container(\n                    constraints: const BoxConstraints.expand(),\n                    // child:\n                    // HandSignature(\n                    //   control: /*surveyController.signaturePageController*/ HandSignatureControl(smoothRatio: 2,velocityRange: 1),\n                    //   type: SignatureDrawType.shape,\n                    // ),\n                  ),\n                ),\n              ),\n            ],\n          ),\n        );\n      },\n    );\n  }\n}\n
+===================================================================
+diff --git a/fleetenable-driver-app/lib/routes/ifta_form/view/ifta_view.dart b/fleetenable-driver-app/lib/routes/ifta_form/view/ifta_view.dart
+--- a/fleetenable-driver-app/lib/routes/ifta_form/view/ifta_view.dart	
++++ b/fleetenable-driver-app/lib/routes/ifta_form/view/ifta_view.dart	
+@@ -1,5 +1,6 @@
+ import 'dart:convert';
+ import 'dart:typed_data';
++import 'dart:ui' as ui;
+ 
+ import 'package:fleet_enable/Utils/utils.dart';
+ import 'package:fleet_enable/constant/app_lang_constants.dart';
+@@ -15,6 +16,7 @@
+ import 'package:hand_signature/signature.dart';
+ import 'package:intl/intl.dart';
+ import 'package:shared_preferences/shared_preferences.dart';
++import 'package:signature/signature.dart';
+ 
+ class IftaView extends StatefulWidget {
+   const IftaView({super.key});
+@@ -27,10 +29,13 @@
+   final IftaFormController controller = Get.put(IftaFormController());
+   final TextEditingController textEditingController = TextEditingController();
+   final TextEditingController commentController = TextEditingController();
+-  late SignaturePageController signaturePageController = Get.put(SignaturePageController());
++  late SignatureController signatureController = Get.put(SignatureController());
+ 
+   SessionManager sessionManager = SessionManager();
+ 
++  String? signatureString;
++  Image? _signatureImage;
++
+   String currentDate = DateFormat.yMMMd('en_US').format(DateTime.now());
+   List<TextEditingController> gallonsControllers = [TextEditingController()];
+ 
+@@ -47,14 +52,22 @@
+     ],
+   );
+ 
+-  void _addNewGallonsField() {
+-    setState(() {
+-      gallonsControllers.add(TextEditingController());
+-    });
++  final HandSignatureControl _signatureControl = HandSignatureControl(
++    velocityRange: 2.0,
++    smoothRatio: 0.65,
++    threshold: 3.0,
++  );
++
++  @override
++  void dispose() {
++    _signatureControl.clear();
++    super.dispose();
+   }
+ 
+   @override
+   Widget build(BuildContext context) {
++    final controller = Get.put(IftaFormController());
++
+     return Scaffold(
+       body: SafeArea(
+         child: Padding(
+@@ -124,7 +137,7 @@
+                       ]),
+                       SizedBox(height: getMediaQueryHeight(context, 0.007)),
+                       _buildContainer([
+-                        _buildTextField('Refuel State:', controller.refuelState),
++                          _buildTextField('Refuel State:', controller.refuelState),
+                         SizedBox(
+                           height: getMediaQueryHeight(context, 0.015),
+                         ),
+@@ -185,7 +198,8 @@
+         ),
+         Expanded(
+           flex: 3,
+-          child: Obx(() => Container(
++          child: Obx(() =>
++              Container(
+                 padding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01), horizontal: getMediaQueryWidth(context, 0.04)),
+                 child: Text(
+                   value.value,
+@@ -211,23 +225,7 @@
+                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+               ),
+               SizedBox(height: getMediaQueryHeight(context, 0.01)),
+-              Container(
+-                  height: getMediaQueryHeight(context, 0.038),
+-                  // decoration: BoxDecoration(
+-                  //   border: Border.all(color: Colors.grey),
+-                  //   borderRadius: BorderRadius.circular(5),
+-                  // ),
+-                  padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),
+-                  child: textField()
+-                  //     TextField(
+-                  //   controller: TextEditingController(text: value.value),
+-                  //   decoration: InputDecoration(
+-                  //     contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.015)),
+-                  //     border: InputBorder.none,
+-                  //   ),
+-                  //   onChanged: (val) => value.value = val,
+-                  // ),
+-                  ),
++              Container(height: getMediaQueryHeight(context, 0.038), padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)), child: textField()),
+             ],
+           ),
+         ),
+@@ -259,10 +257,6 @@
+         Expanded(
+           flex: 1,
+           child: Container(
+-            // decoration: BoxDecoration(
+-            //   border: Border.all(color: Colors.grey),
+-            //   borderRadius: BorderRadius.circular(5),
+-            // ),
+             padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.1), vertical: getMediaQueryHeight(context, 0.01)),
+             child: Text(value),
+           ),
+@@ -283,8 +277,7 @@
+         hintText: 'miles',
+         hintStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black12),
+         border: OutlineInputBorder(
+-          borderRadius: BorderRadius.only(topLeft: Radius.circular(10),topRight: Radius.circular(10),bottomLeft: Radius.circular(10),bottomRight: Radius.circular(10))
+-        ),
++            borderRadius: BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10), bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10))),
+         // UnderlineInputBorder(
+         //   borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+         //   borderSide: BorderSide(color: Colors.grey.shade300),
+@@ -339,23 +332,9 @@
+                 )),
+             Expanded(
+               flex: 4,
+-              child: Container(
+-                  height: getMediaQueryHeight(context, 0.038),
+-                  // decoration: BoxDecoration(
+-                  //   border: Border.all(color: Colors.grey),
+-                  //   borderRadius: BorderRadius.circular(5),
+-                  // ),
+-                  padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),
+-                  child: textFieldTwo()
+-                  // TextField(
+-                  //   controller: TextEditingController(text: controller.gallons.value),
+-                  //   decoration: InputDecoration(
+-                  //     contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.015)),
+-                  //     border: InputBorder.none,
+-                  //   ),
+-                  //   onChanged: (val) => controller.gallons.value = val,
+-                  // ),
+-                  ),
++              child: Container(height: getMediaQueryHeight(context, 0.038), padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)), child: textFieldTwo()
++                //   onChanged: (val) => controller.gallons.value = val,
++              ),
+             ),
+           ],
+         ),
+@@ -365,7 +344,7 @@
+           children: [
+             Icon(
+               Icons.info_outline_rounded,
+-              size: 20,
++              size: 21,
+             ),
+             SizedBox(
+               width: getMediaQueryWidth(context, 0.025),
+@@ -380,7 +359,7 @@
+             IconButton(
+               icon: Icon(Icons.add_circle_outline_sharp, size: 25),
+               onPressed: () {
+-                _addNewGallonsField();
++                // _addNewGallonsField();
+               },
+             ),
+           ],
+@@ -393,8 +372,9 @@
+     return GestureDetector(
+       onTap: () => Get.to(() => VehicleInspectionReportPage()),
+       child: Container(
+-        // margin: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01)),
+-        padding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01)),
++        padding: EdgeInsets.symmetric(
++          vertical: getMediaQueryHeight(context, 0.01),
++        ),
+         child: Row(
+           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+           children: [
+@@ -406,102 +386,9 @@
+     );
+   }
+ 
+-  // Widget _buildStateMilesField(BuildContext context, String state, RxString miles) {
+-  //   return Container(
+-  //     padding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.01), horizontal: getMediaQueryWidth(context, 0.02)),
+-  //     decoration: BoxDecoration(
+-  //       color: Colors.white,
+-  //       borderRadius: BorderRadius.circular(10),
+-  //       border: Border.all(color: Colors.grey.shade300, width: 1.5),
+-  //       boxShadow: [
+-  //         BoxShadow(
+-  //           color: Colors.grey.shade200,
+-  //           offset: const Offset(11, 11),
+-  //           blurRadius: 10,
+-  //         ),
+-  //       ],
+-  //     ),
+-  //     child: Column(
+-  //       crossAxisAlignment: CrossAxisAlignment.start,
+-  //       children: [
+-  //         Text(
+-  //           'Miles by state:',
+-  //           style: TextStyle(
+-  //             fontWeight: FontWeight.bold,
+-  //             fontSize: 18,
+-  //             letterSpacing: 1,
+-  //           ),
+-  //         ),
+-  //         SizedBox(height: getMediaQueryHeight(context, 0.01)),
+-  //         Row(
+-  //           children: [
+-  //             Expanded(
+-  //               flex: 1,
+-  //               child: Text(
+-  //                 state,
+-  //                 style: TextStyle(
+-  //                   fontWeight: FontWeight.bold,
+-  //                   fontSize: 18,
+-  //                   letterSpacing: 1,
+-  //                 ),
+-  //               ),
+-  //             ),
+-  //             Expanded(
+-  //               flex: 4,
+-  //               child: Container(
+-  //                 height: getMediaQueryHeight(context, 0.04),
+-  //                 padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),
+-  //                 child: textFieldTwo(),
+-  //               ),
+-  //             ),
+-  //           ],
+-  //         ),
+-  //       ],
+-  //     ),
+-  //   );
+-  // }
+-
+-/*  Widget _buildStateMilesField(BuildContext context, String state, RxString miles) {
+-    return Row(
+-      children: [
+-        Expanded(flex: 1, child: Text(state,style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18,letterSpacing: 1),)),
+-        Expanded(
+-          flex: 4,
+-          child:  Container(
+-
+-              height: getMediaQueryHeight(context, 0.04),
+-              padding: EdgeInsets.symmetric(horizontal: getMediaQueryWidth(context, 0.01)),
+-              child:
+-              textFieldTwo()
+-              // TextField(
+-              //   controller: TextEditingController(text: miles.value),
+-              //   decoration: InputDecoration(
+-              //     contentPadding: EdgeInsets.symmetric(vertical: getMediaQueryHeight(context, 0.015)),
+-              //     border: InputBorder.none,
+-              //   ),
+-              //   onChanged: (val) => miles.value = val,
+-              // ),
+-            ),
+-          ),
+-      ],
+-    );
+-  }*/
+-
+   Widget _buildStateMilesContainer(BuildContext context) {
+     return Container(
+       padding: EdgeInsets.all(getMediaQueryWidth(context, 0.015)),
+-      // decoration: BoxDecoration(
+-      //   color: Colors.white,
+-      //   borderRadius: BorderRadius.circular(10),
+-      //   border: Border.all(color: Colors.grey.shade300, width: 1.5),
+-      //   boxShadow: [
+-      //     BoxShadow(
+-      //       color: Colors.grey.shade200,
+-      //       offset: const Offset(11, 11),
+-      //       blurRadius: 10,
+-      //     ),
+-      //   ],
+-      // ),
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.start,
+         children: [
+@@ -562,7 +449,7 @@
+         child: Row(
+           mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+-            Image.asset("assets/icon/signature.png", color: Colors.grey,width: getMediaQueryWidth(context, 0.12), height: getMediaQueryWidth(context, 0.2)),
++            Image.asset("assets/icon/signature.png", color: Colors.grey, width: getMediaQueryWidth(context, 0.12), height: getMediaQueryWidth(context, 0.2)),
+             Text('Tap to sign', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1)),
+             // Icon(Icons.create, color: Colors.blue),
+           ],
+@@ -571,24 +458,24 @@
+     );
+   }
+ 
+-  Future<void> _saveSignature(Uint8List? signature) async {
+-    if (signature == null) return;
++  Future<void> saveSignature(String signature) async {
+     final prefs = await SharedPreferences.getInstance();
+-    String base64Signature = base64Encode(signature);
+-    await prefs.setString('signature', base64Signature);
++    await prefs.setString('signature', signature);
+   }
+ 
+-/*  Future<void> _clearSignature() async {
++  Future<void> loadSignature() async {
+     final prefs = await SharedPreferences.getInstance();
+-    await prefs.remove('signature');
+-  }*/
++    prefs.getString('signature');
++  }
+ 
+-  Future<void> _loadSignature() async {
+-    final prefs = await SharedPreferences.getInstance();
+-    String? base64Signature = prefs.getString('signature');
++  void getSavedSignature() async {
++    await loadSignature();
++    if (signatureString != null) {
++      Uint8List signatureBytes = base64Decode(signatureString!);
+ 
+-    if (base64Signature != null) {
+-      Uint8List signature = base64Decode(base64Signature);
++      setState(() {
++        _signatureImage = Image.memory(signatureBytes);
++      });
+     }
+   }
+ 
+@@ -609,55 +496,61 @@
+                     mainAxisSize: MainAxisSize.max,
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+-                      Row(
+-                        mainAxisSize: MainAxisSize.max,
+-                        mainAxisAlignment: MainAxisAlignment.center,
+-                        children: [
+-                          Container(
+-                            alignment: Alignment.center,
+-                            decoration: const BoxDecoration(shape: BoxShape.circle),
+-                            height: getMediaQueryHeight(context, 0.05),
+-                            width: getMediaQueryWidth(context, 0.2),
+-                            child: Material(
+-                              child: IconButton(
+-                                onPressed: () {
+-                                  Get.back();
+-                                },
+-                                icon: Transform.rotate(
+-                                  angle: 1.5,
+-                                  child: Icon(
+-                                    Icons.cancel,
+-                                    color: Colors.red,
+-                                    size: getMediaQueryWidth(context, 0.07),
+-                                  ),
+-                                ),
+-                              ),
+-                            ),
+-                          ),
+-                        ],
++                      IconButton(
++                        onPressed: () {
++                          Get.back();
++                        },
++                        icon: Transform.rotate(
++                          angle: 1.5,
++                          child: Icon(
++                            Icons.cancel,
++                            color: Colors.red,
++                            size: getMediaQueryWidth(context, 0.07),
++                          ),
++                        ),
+                       ),
+                       Row(
+                         children: [
+                           IconButton(
+-                              onPressed: () async {
+-                                try {
+-                                  Get.back();
+-                                  setState(() {});
+-                                } catch (ex) {
+-                                  Utils.showToastMessage(AppConstants.failed_signature);
+-                                }
+-                              },
+-                              icon: Transform.rotate(angle: 1.5, child: const Icon(Icons.check))),
+-                          SizedBox(
+-                            width: getMediaQueryWidth(context, 0.02),
++                            onPressed: () async {
++                              try {
++                                final ui.Image? signatureImage = (await _signatureControl.toImage()) as ui.Image?;
++
++                                if (signatureImage != null) {
++                                  final ByteData? byteData = await signatureImage.toByteData(format: ui.ImageByteFormat.png);
++
++                                  if (byteData != null) {
++                                    final Uint8List pngBytes = byteData.buffer.asUint8List();
++
++                                    signatureString = base64Encode(pngBytes);
++                                    await saveSignature(signatureString!);
++
++                                    getSavedSignature();
++                                  }
++                                }
++
++                                Get.back();
++                              } catch (ex) {
++                                print('Failed to save signature: $ex');
++                              }
++                            },
++                            icon: Transform.rotate(
++                              angle: 1.5,
++                              child: const Icon(Icons.check),
++                            ),
+                           ),
++                          SizedBox(width: getMediaQueryWidth(context, 0.02)),
+                           IconButton(
+-                              onPressed: () {
+-                                // surveyController.signaturePageController.clear();
+-                              },
+-                              icon: Transform.rotate(angle: 1.5, child: const Icon(Icons.undo_rounded))),
++                            onPressed: () {
++                              _signatureControl.clear();
++                            },
++                            icon: Transform.rotate(
++                              angle: 1.5,
++                              child: const Icon(Icons.undo_rounded),
++                            ),
++                          ),
+                         ],
+-                      )
++                      ),
+                     ],
+                   ),
+                 ),
+@@ -667,20 +560,108 @@
+                 width: getMediaQueryWidth(context, 0.9),
+                 child: Container(
+                   color: Colors.white,
+-                  child: Container(
+-                    constraints: const BoxConstraints.expand(),
+-                    // child:
+-                    // HandSignature(
+-                    //   control: /*surveyController.signaturePageController*/ HandSignatureControl(smoothRatio: 2,velocityRange: 1),
+-                    //   type: SignatureDrawType.shape,
+-                    // ),
+-                  ),
+-                ),
+-              ),
+-            ],
+-          ),
+-        );
+-      },
+-    );
+-  }
++                  child: HandSignature(
++                    control: _signatureControl,
++                    type: SignatureDrawType.shape,
++                  ),
++                ),
++              ),
++            ],
++          ),
++        );
++      },
++    );
++  }
++
++// Future signaturePad() async {
++//   return await showCupertinoDialog(
++//     context: context,
++//     builder: (context) {
++//       return SafeArea(
++//         child: Column(
++//           mainAxisAlignment: MainAxisAlignment.center,
++//           children: [
++//             Container(
++//               color: Colors.white,
++//               width: getMediaQueryWidth(context, 0.9),
++//               height: getMediaQueryHeight(context, 0.1),
++//               child: Material(
++//                 child: Row(
++//                   mainAxisSize: MainAxisSize.max,
++//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
++//                   children: [
++//                     Row(
++//                       mainAxisSize: MainAxisSize.max,
++//                       mainAxisAlignment: MainAxisAlignment.center,
++//                       children: [
++//                         Container(
++//                           alignment: Alignment.center,
++//                           decoration: const BoxDecoration(shape: BoxShape.circle),
++//                           height: getMediaQueryHeight(context, 0.05),
++//                           width: getMediaQueryWidth(context, 0.2),
++//                           child: Material(
++//                             child: IconButton(
++//                               onPressed: () {
++//                                 Get.back();
++//                               },
++//                               icon: Transform.rotate(
++//                                 angle: 1.5,
++//                                 child: Icon(
++//                                   Icons.cancel,
++//                                   color: Colors.red,
++//                                   size: getMediaQueryWidth(context, 0.07),
++//                                 ),
++//                               ),
++//                             ),
++//                           ),
++//                         ),
++//                       ],
++//                     ),
++//                     Row(
++//                       children: [
++//                         IconButton(
++//                             onPressed: () async {
++//                               try {
++//                                 Get.back();
++//                                 setState(() {});
++//                               } catch (ex) {
++//                                 Utils.showToastMessage(AppConstants.failed_signature);
++//                               }
++//                             },
++//                             icon: Transform.rotate(angle: 1.5, child: const Icon(Icons.check))),
++//                         SizedBox(
++//                           width: getMediaQueryWidth(context, 0.02),
++//                         ),
++//                         IconButton(
++//                             onPressed: () {
++//                               // surveyController.signaturePageController.clear();
++//                             },
++//                             icon: Transform.rotate(angle: 1.5, child: const Icon(Icons.undo_rounded))),
++//                       ],
++//                     )
++//                   ],
++//                 ),
++//               ),
++//             ),
++//             SizedBox(
++//               height: getMediaQueryHeight(context, 0.8),
++//               width: getMediaQueryWidth(context, 0.9),
++//               child: Container(
++//                 color: Colors.white,
++//                 child: Container(
++//                   constraints: const BoxConstraints.expand(),
++//                   // child:
++//                   // HandSignature(
++//                   //   control: /*surveyController.signaturePageController*/ HandSignatureControl(smoothRatio: 2,velocityRange: 1),
++//                   //   type: SignatureDrawType.shape,
++//                   // ),
++//                 ),
++//               ),
++//             ),
++//           ],
++//         ),
++//       );
++//     },
++//   );
++// }
+ }
+Index: fleetenable-driver-app/lib/routes/ifta_form/controller/ifta_controller.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import 'package:fleet_enable/routes/base_route.dart';\nimport 'package:get/get.dart';\n\nclass IftaFormController extends GetxController with AppData{\n  var driverName = 'Negi Pradyumna'.obs;\n  var truckNo = 'TR 1234 WAS'.obs;\n  var odometerStart = ''.obs;\n  var odometerFinish = ''.obs;\n  var distanceTravelledGPS = ''.obs;\n  var refuelState = 'ARK'.obs;\n  var gallons = ''.obs;\n  var moMiles = ''.obs;\n  var ksMiles = ''.obs;\n  var iaMiles = ''.obs;\n  var signature = ''.obs;\n}\n
+===================================================================
+diff --git a/fleetenable-driver-app/lib/routes/ifta_form/controller/ifta_controller.dart b/fleetenable-driver-app/lib/routes/ifta_form/controller/ifta_controller.dart
+--- a/fleetenable-driver-app/lib/routes/ifta_form/controller/ifta_controller.dart	
++++ b/fleetenable-driver-app/lib/routes/ifta_form/controller/ifta_controller.dart	
+@@ -1,7 +1,7 @@
+ import 'package:fleet_enable/routes/base_route.dart';
+ import 'package:get/get.dart';
+ 
+-class IftaFormController extends GetxController with AppData{
++class IftaFormController extends GetxController with AppData {
+   var driverName = 'Negi Pradyumna'.obs;
+   var truckNo = 'TR 1234 WAS'.obs;
+   var odometerStart = ''.obs;
+Index: fleetenable-driver-app/lib/routes/ifta_form/view/vehicle_inspection_report.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import 'package:fleet_enable/routes/base_route.dart';\nimport 'package:fleet_enable/routes/ifta_form/controller/vehicle_inspection_report_controller.dart';\nimport 'package:flutter/cupertino.dart';\nimport 'package:flutter/material.dart';\nimport 'package:flutter/widgets.dart';\nimport 'package:get/get.dart';\n\nclass VehicleInspectionReportPage extends StatefulWidget {\n  @override\n  _VehicleInspectionReportPageState createState() => _VehicleInspectionReportPageState();\n}\n\nclass _VehicleInspectionReportPageState extends BaseRoute<VehicleInspectionReportPage> {\n  final controller = Get.put(VehicleInspectionReportController());\n\n  BoxDecoration bd = BoxDecoration(\n    color: Colors.white,\n    borderRadius: BorderRadius.circular(10),\n    border: Border.all(color: Colors.grey.shade300, width: 1.5),\n    boxShadow: [\n      BoxShadow(\n        color: Colors.grey.shade200,\n        offset: const Offset(11, 11),\n        blurRadius: 10,\n      ),\n    ],\n  );\n\n  @override\n  Widget build(BuildContext context) {\n    return Scaffold(\n      body: SafeArea(\n        child: SingleChildScrollView(\n          child: Padding(\n            padding: EdgeInsets.all(getMediaQueryHeight(context, 0.016)),\n            child: Column(\n              crossAxisAlignment: CrossAxisAlignment.start,\n              children: [\n                Padding(\n                  padding: EdgeInsets.only(right: getMediaQueryWidth(context, 0.01)),\n                  child: Row(\n                    children: [\n                      Material(\n                        elevation: 2,\n                        color: Colors.white,\n                        borderRadius: BorderRadius.circular(20),\n                        child: InkWell(\n                          splashColor: Colors.blue.shade100,\n                          borderRadius: BorderRadius.circular(20),\n                          onTap: () {\n                            Get.back();\n                          },\n                          child: SizedBox(\n                            width: getMediaQueryWidth(context, 0.09),\n                            height: getMediaQueryWidth(context, 0.09),\n                            child: Row(\n                              mainAxisAlignment: MainAxisAlignment.center,\n                              children: [\n                                SizedBox(width: getMediaQueryWidth(context, 0.02)),\n                                const Icon(Icons.arrow_back_ios, color: Colors.black),\n                              ],\n                            ),\n                          ),\n                        ),\n                      ),\n                      SizedBox(width: getMediaQueryWidth(context, 0.05)),\n                      Text(\n                        'Vehicle Inspection Report',\n                        style: TextStyle(\n                            fontSize: getMediaQueryHeight(context, 0.025),\n                            fontWeight: FontWeight.bold),\n                      ),\n                    ],\n                  ),\n                ),\n                SizedBox(height: getMediaQueryHeight(context, 0.025)),\n                Text(\n                  '*If the item is satisfactory mark \"✔\" in the box below. If the item is faulty or could be a safety hazard, leave it blank, write a short description of the issue and report it to management.\\nPRE = Pre-Trip | POS = Post Trip',\n                  style: TextStyle(fontSize: getMediaQueryHeight(context, 0.016)),\n                ),\n                SizedBox(height: getMediaQueryHeight(context, 0.02)),\n                _buildContainer(\n                  [\n                    Row(\n                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,\n                      children: [\n                        Expanded(\n                            flex: 2,\n                            child: Text('Truck/Trailer',\n                                style: TextStyle(\n                                    fontWeight: FontWeight.bold, fontSize: 16))),\n                        SizedBox(width: getMediaQueryWidth(context, 0.25)),\n                        Expanded(\n                            flex: 1,\n                            child: Text('PRE',\n                                style: TextStyle(\n                                    fontWeight: FontWeight.bold, fontSize: 16))),\n                        SizedBox(width: getMediaQueryWidth(context, 0.12)),\n                        Expanded(\n                            flex: 1,\n                            child: Text('POS',\n                                style: TextStyle(\n                                    fontWeight: FontWeight.bold, fontSize: 16))),\n                      ],\n                    ),\n                  ],\n                ),\n                _buildContainer([\n                  _buildInspectionRow(\n                      'Marker Lights', controller.markerLightsPre, controller.markerLightsPos),\n                  _buildInspectionRow(\n                      'Headlights', controller.headlightsPre, controller.headlightsPos),\n                  _buildInspectionRow(\n                      'Taillights', controller.taillightsPre, controller.taillightsPos),\n                  _buildInspectionRow('Fire Extinguisher',\n                      controller.fireExtinguisherPre, controller.fireExtinguisherPos),\n                  _buildInspectionRow(\n                      'Reflectors', controller.reflectorsPre, controller.reflectorsPos),\n                  _buildInspectionRow('Mirrors', controller.mirrorsPre, controller.mirrorsPos),\n                  _buildInspectionRow(\n                      'Tyre pressure', controller.tyrePressurePre, controller.tyrePressurePos),\n                  _buildInspectionRow('Doors', controller.doorsPre, controller.doorsPos),\n                  _buildInspectionRow('Air conditioner',\n                      controller.airConditionerPre, controller.airConditionerPos),\n                  _buildInspectionRow('Suspension', controller.suspensionPre, controller.suspensionPos),\n                ]),\n                SizedBox(height: getMediaQueryHeight(context, 0.015)),\n                Text(\n                  'Driver Remarks',\n                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),\n                ),\n                SizedBox(height: getMediaQueryHeight(context, 0.01)),\n                Container(\n                  decoration: bd,\n                  child: TextField(\n                    maxLines: 5,\n                    decoration: InputDecoration(\n                      contentPadding: EdgeInsets.all(getMediaQueryHeight(context, 0.02)),\n                      border: InputBorder.none,\n                    ),\n                  ),\n                ),\n                SizedBox(height: getMediaQueryHeight(context, 0.015)),\n              ],\n            ),\n          ),\n        ),\n      ),\n      bottomNavigationBar: Padding(\n        padding: EdgeInsets.all(getMediaQueryHeight(context, 0.016)),\n        child: SizedBox(\n          width: double.infinity,\n          height: getMediaQueryHeight(context, 0.05),\n          child: ElevatedButton(\n            style: ButtonStyle(backgroundColor: MaterialStateProperty.all(Colors.indigoAccent)),\n            onPressed: () {\n              // Save and navigate to the next step\n            },\n            child: Text(\n              'Save and Next (10/30)',\n              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),\n            ),\n          ),\n        ),\n      ),\n    );\n  }\n\n  Widget _buildContainer(List<Widget> children) {\n    return Container(\n      margin: EdgeInsets.symmetric(vertical: getMediaQueryWidth(context, 0.01)),\n      padding: EdgeInsets.all(getMediaQueryHeight(context, 0.01)),\n      decoration: bd,\n      child: Column(\n        children: children,\n      ),\n    );\n  }\n\n  Widget _buildInspectionRow(String item, RxBool pre, RxBool pos) {\n    return Row(\n      children: [\n        Expanded(flex: 3, child: Text(item)),\n        Expanded(\n          flex: 1,\n          child: Obx(() => Checkbox(\n                value: pre.value,\n                onChanged: (val) => pre.value = val!,\n              )),\n        ),\n        SizedBox(width: getMediaQueryWidth(context, 0.1)),\n        Expanded(\n          flex: 1,\n          child: Obx(() => Checkbox(\n                value: pos.value,\n                onChanged: (val) => pos.value = val!,\n              )),\n        ),\n      ],\n    );\n  }\n}\n
+===================================================================
+diff --git a/fleetenable-driver-app/lib/routes/ifta_form/view/vehicle_inspection_report.dart b/fleetenable-driver-app/lib/routes/ifta_form/view/vehicle_inspection_report.dart
+--- a/fleetenable-driver-app/lib/routes/ifta_form/view/vehicle_inspection_report.dart	
++++ b/fleetenable-driver-app/lib/routes/ifta_form/view/vehicle_inspection_report.dart	
+@@ -73,12 +73,12 @@
+                     ],
+                   ),
+                 ),
+-                SizedBox(height: getMediaQueryHeight(context, 0.025)),
++                SizedBox(height: getMediaQueryHeight(context, 0.022)),
+                 Text(
+                   '*If the item is satisfactory mark "✔" in the box below. If the item is faulty or could be a safety hazard, leave it blank, write a short description of the issue and report it to management.\nPRE = Pre-Trip | POS = Post Trip',
+                   style: TextStyle(fontSize: getMediaQueryHeight(context, 0.016)),
+                 ),
+-                SizedBox(height: getMediaQueryHeight(context, 0.02)),
++                SizedBox(height: getMediaQueryHeight(context, 0.01)),
+                 _buildContainer(
+                   [
+                     Row(
